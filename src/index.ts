@@ -1,6 +1,6 @@
 // Convenience re-exports for frequently used functions (React-like design)
 export * from './routine';
-export * from './source';
+export * from './store';
 export * from './blueprint';
 
 import * as B from './blueprint';

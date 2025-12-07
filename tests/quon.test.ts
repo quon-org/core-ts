@@ -195,12 +195,12 @@ describe('Blueprint basic functionality', () => {
         });
 
         useDerivation(refetchAtom, refetch => {
-          useConnection(portal, refetch);
+          useConnection(portal, refetch, Symbol('Portal'));
         });
 
         useDerivation(refetchAtom, refetch => {
           useTimeout(10);
-          useConnection(portal, refetch + 100);
+          useConnection(portal, refetch + 100, Symbol('Portal'));
         });
 
         useTimeout(20);

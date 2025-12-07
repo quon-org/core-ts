@@ -1,5 +1,5 @@
 import { Effect, Fiber, Routine } from './routine';
-import { Atom, Portal, Source } from './source';
+import { Atom, Portal, Store } from './store';
 import { Structural } from './structural';
 import { MaybePromise } from './util';
 
@@ -198,15 +198,15 @@ export function useTimeout(delayMs: number): void {
 // Store-related convenience functions
 // ============================================================================
 
-export function useDerivation<T, U>(
-  source: Source<T>,
-  blueprint: (val: T) => U
-): Source<U> {
+export function useDerivation<K, V, U>(
+  source: Store<K, V>,
+  blueprint: (val: V, key: K) => U
+): Store<K, U> {
   const userCtx = useUserContext();
   return use(
-    source.derive(v => {
+    source.derive((v, k) => {
       return toRoutine(() => {
-        return blueprint(v);
+        return blueprint(v, k);
       }, userCtx);
     })
   );
@@ -235,10 +235,10 @@ export function useAtom<T extends Structural>(initialValue: T): Atom<T> {
  * Multiple values can coexist in the Store.
  * This is a convenience wrapper around Store.newPortalRealm().
  */
-export function usePortal<T>(): Portal<T> {
+export function usePortal<K, V>(): Portal<K, V> {
   return use(
-    new Effect<Portal<T>>(addFinalizeFn => {
-      const portal = new Portal<T>();
+    new Effect<Portal<K, V>>(addFinalizeFn => {
+      const portal = new Portal<K, V>();
       addFinalizeFn(() => {
         portal.finalize();
       });
@@ -247,6 +247,10 @@ export function usePortal<T>(): Portal<T> {
   );
 }
 
-export function useConnection<T>(portal: Portal<T>, val: T): void {
-  return use(portal.connect(val));
+export function useConnection<K, V>(
+  portal: Portal<K, V>,
+  val: V,
+  key: K
+): void {
+  return use(portal.connect(key, val));
 }
