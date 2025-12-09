@@ -12,6 +12,8 @@ import {
   useFork,
   useConnection,
   createContext,
+  useDistribution,
+  useMemoize,
 } from '../src';
 
 const useLog = (logs: LogCapture, label: string, releaseLabel?: string): void =>
@@ -69,17 +71,17 @@ describe('Blueprint basic functionality', () => {
 
       // 最初の更新
       await new Promise(resolve => setTimeout(resolve, 20));
-      result = logs.expect(['value: 0', 'released: 0', 'value: 5']);
+      result = logs.expect(['value: 0', 'value: 5', 'released: 0']);
       assert.strictEqual(result.passed, true, result.message);
 
       // 2回目の更新
       await new Promise(resolve => setTimeout(resolve, 20));
       result = logs.expect([
         'value: 0',
-        'released: 0',
         'value: 5',
-        'released: 5',
+        'released: 0',
         'value: 10',
+        'released: 5',
       ]);
       assert.strictEqual(result.passed, true, result.message);
 
@@ -166,14 +168,14 @@ describe('Blueprint basic functionality', () => {
       const result = logs.expect([
         'observer1: 0',
         'observer2: 0',
-        'release1: 0',
-        'release2: 0',
         'observer1: 1',
         'observer2: 1',
-        'release1: 1',
-        'release2: 1',
+        'release1: 0',
+        'release2: 0',
         'observer1: 2',
         'observer2: 2',
+        'release1: 1',
+        'release2: 1',
       ]);
       assert.strictEqual(result.passed, true, result.message);
 
@@ -186,7 +188,7 @@ describe('Blueprint basic functionality', () => {
       const logs = new LogCapture();
 
       const blueprint = (): void => {
-        const portal = usePortal();
+        const portal = usePortal<symbol, number>();
 
         const refetchAtom = useAtom<number>(0);
 
@@ -195,12 +197,12 @@ describe('Blueprint basic functionality', () => {
         });
 
         useDerivation(refetchAtom, refetch => {
-          useConnection(portal, refetch, Symbol('Portal'));
+          useConnection(portal, Symbol('Portal'), refetch);
         });
 
         useDerivation(refetchAtom, refetch => {
           useTimeout(10);
-          useConnection(portal, refetch + 100, Symbol('Portal'));
+          useConnection(portal, Symbol('Portal'), refetch + 100);
         });
 
         useTimeout(20);
@@ -223,13 +225,13 @@ describe('Blueprint basic functionality', () => {
       const result = logs.expect([
         'created: 0',
         'created: 100',
+        'created: 5',
         'released: 0',
         'released: 100',
-        'created: 5',
         'created: 105',
+        'created: 10',
         'released: 5',
         'released: 105',
-        'created: 10',
         'created: 110',
       ]);
       assert.strictEqual(result.passed, true, result.message);
@@ -264,7 +266,7 @@ describe('Blueprint basic functionality', () => {
         // cancel before "value2: 100" is logged
         // -> "value1: 1", "value1: 2", "value2: 100"
         useEffect(() => cell2.set(200));
-        useTimeout(10);
+        useTimeout(15);
         // Resume from `Blueprint.use(cell2)`  (no value1 logs)
         // -> "value2: 200"
       };
@@ -272,7 +274,7 @@ describe('Blueprint basic functionality', () => {
       const app = toRoutine(blueprint).initialize();
 
       // 2回目の更新
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 120));
       const result = logs.expect([
         'value1: 0',
         'value2: 100',
@@ -375,5 +377,85 @@ describe('Blueprint basic functionality', () => {
 
       await app.finalize();
     });
+  });
+
+  describe('useDistribution works correctly', async () => {
+    const logs = new LogCapture();
+
+    const blueprint = (): void => {
+      const source = useAtom<
+        {
+          id: string;
+          value: number;
+        }[]
+      >([]);
+      const distribution = useDistribution(source, v => v.id);
+
+      useDerivation(distribution, (dataStore, id) => {
+        useLog(logs, `init: ${id}`, `fin: ${id}`);
+        const valueAtom = useMemoize(dataStore.map(({ value }) => value));
+        useDerivation(valueAtom, value => {
+          useLog(logs, `value: ${id}: ${value}`);
+        });
+      });
+
+      useTimeout(10);
+
+      useEffect(() => {
+        source.set([
+          { id: 'a', value: 1 },
+          { id: 'b', value: 2 },
+          { id: 'c', value: 3 },
+        ]);
+      });
+
+      useTimeout(10);
+
+      useEffect(() => {
+        source.set([
+          { id: 'a', value: 1 },
+          { id: 'b', value: 2 },
+        ]);
+      });
+
+      useTimeout(10);
+
+      useEffect(() => {
+        source.set([
+          { id: 'b', value: 2 },
+          { id: 'c', value: 3 },
+        ]);
+      });
+
+      useTimeout(10);
+
+      useEffect(() => {
+        source.set([
+          { id: 'b', value: 100 },
+          { id: 'c', value: 3 },
+        ]);
+      });
+    };
+
+    const app = toRoutine(blueprint).initialize();
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    const result = logs.expect([
+      'init: a',
+      'value: a: 1',
+      'init: b',
+      'value: b: 2',
+      'init: c',
+      'value: c: 3',
+      'fin: c',
+      'value: b: 2',
+      'init: c',
+      'value: c: 3',
+      'fin: a',
+      'value: b: 100',
+    ]);
+    assert.strictEqual(result.passed, true, result.message);
+
+    await app.finalize();
   });
 });

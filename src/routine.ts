@@ -157,6 +157,18 @@ export class Effect<T> extends Routine<T> {
     let isFinalized = false;
     let cleanupResult: MaybePromise<void>;
 
+    const resultMaybePromise = this.initializeFn(finalizeFn => {
+      finalizeFns.push(finalizeFn);
+    }, abortController.signal);
+
+    const resultPromise =
+      resultMaybePromise instanceof Promise
+        ? resultMaybePromise.then(v => {
+            if (isFinalized) throw new Error('Effect: Routine finalized');
+            return v;
+          })
+        : resultMaybePromise;
+
     const finalize = (): MaybePromise<void> => {
       if (isFinalized) return cleanupResult;
       isFinalized = true;
@@ -164,6 +176,7 @@ export class Effect<T> extends Routine<T> {
       abortController.abort();
 
       let chain: Promise<void> | undefined;
+
       // finalizeFns を逆順実行
       for (let i = finalizeFns.length - 1; i >= 0; i--) {
         const fn = finalizeFns[i];
@@ -184,9 +197,7 @@ export class Effect<T> extends Routine<T> {
     };
 
     return {
-      result: this.initializeFn(finalizeFn => {
-        finalizeFns.push(finalizeFn);
-      }, abortController.signal),
+      result: resultPromise,
       finalize,
     };
   };

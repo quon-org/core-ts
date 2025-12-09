@@ -2,6 +2,7 @@
 export * from './routine';
 export * from './store';
 export * from './blueprint';
+export * from './complex';
 
 import * as B from './blueprint';
 

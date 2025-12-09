@@ -98,7 +98,12 @@ export function toRoutine<T>(
   return new Effect<T>(async addFinalizeFn => {
     const routineUserCtx = { ...userCtx };
     const history: BlueprintResult[] = [];
+    let isFinalized = false;
     let currentIndex = 0;
+
+    addFinalizeFn(() => {
+      isFinalized = true;
+    });
 
     function use<U>(routine: Routine<U>): U {
       const index = currentIndex;
@@ -131,9 +136,15 @@ export function toRoutine<T>(
         return result;
       } catch (e) {
         BLUEPRINT_GLOBAL_CONTEXT = tmp;
-        if (e instanceof Object && 'index' in e && 'promise' in e) {
+        if (
+          e instanceof Object &&
+          'index' in e &&
+          'promise' in e &&
+          e.promise instanceof Promise
+        ) {
           const result = await e.promise;
           history[e.index as number] = result;
+          if (isFinalized) throw new Error('Blueprint: Routine finalized');
         }
       }
     }
@@ -179,15 +190,15 @@ export function useEffect<T>(
 export function useTimeout(delayMs: number): void {
   return use(
     new Effect<void>((addFinalizeFn, abortSignal) => {
-      return new Promise<void>(resolve => {
+      return new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
-          if (!abortSignal.aborted) {
-            resolve();
-          }
+          if (abortSignal.aborted) reject();
+          resolve();
         }, delayMs);
 
         addFinalizeFn(() => {
           clearTimeout(timeout);
+          reject();
         });
       });
     })
@@ -218,15 +229,7 @@ export function useDerivation<K, V, U>(
  * This is a convenience wrapper around Store.newCellRealm().
  */
 export function useAtom<T extends Structural>(initialValue: T): Atom<T> {
-  return use(
-    new Effect<Atom<T>>(addFinalizeFn => {
-      const atom = new Atom<T>(initialValue);
-      addFinalizeFn(() => {
-        atom.finalize();
-      });
-      return atom;
-    })
-  );
+  return use(Atom.factoryRoutine(initialValue));
 }
 
 /**
@@ -236,21 +239,13 @@ export function useAtom<T extends Structural>(initialValue: T): Atom<T> {
  * This is a convenience wrapper around Store.newPortalRealm().
  */
 export function usePortal<K, V>(): Portal<K, V> {
-  return use(
-    new Effect<Portal<K, V>>(addFinalizeFn => {
-      const portal = new Portal<K, V>();
-      addFinalizeFn(() => {
-        portal.finalize();
-      });
-      return portal;
-    })
-  );
+  return use(Portal.factoryRoutine());
 }
 
 export function useConnection<K, V>(
   portal: Portal<K, V>,
-  val: V,
-  key: K
+  key: K,
+  val: V
 ): void {
   return use(portal.connect(key, val));
 }
