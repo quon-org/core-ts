@@ -4,7 +4,6 @@ import {
   useEffect,
   usePortal,
 } from './blueprint';
-import { Atom, SingletonStore, Store } from './store';
 
 export function useDistribution<K, V>(
   source: SingletonStore<Array<V>>,
@@ -38,14 +37,6 @@ export function useDistribution<K, V>(
         });
       }
     }
-  });
-  return portal;
-}
-
-export function useMemoize<T>(source: SingletonStore<T>): SingletonStore<T> {
-  const portal = usePortal<null, T>();
-  useDerivation(source, v => {
-    useConnection(portal, null, v);
   });
   return portal;
 }

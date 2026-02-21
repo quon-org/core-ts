@@ -36,12 +36,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/quon-org/core-ts.git"
+    "url": "git+https://github.com/quon-org/quon-ts.git"
   },
   "bugs": {
-    "url": "https://github.com/quon-org/core-ts/issues"
+    "url": "https://github.com/quon-org/quon-ts/issues"
   },
-  "homepage": "https://github.com/quon-org/core-ts#readme",
+  "homepage": "https://github.com/quon-org/quon-ts#readme",
   "devDependencies": {
     "@types/node": "^24.3.3",
     "@typescript-eslint/eslint-plugin": "^8.43.0",

@@ -1,4 +1,4 @@
-import { Routine } from './routine';
+import * as Rs from './resource';
 import { MaybePromise } from './util';
 
 export class BiLinkMap<A, B> {
@@ -55,7 +55,7 @@ export class BiLinkMap<A, B> {
     return this.bToA.keys();
   }
 
-  link(a: A, b: B, component: Routine<void>): void {
+  link(a: A, b: B, component: Rs.Resource<void>): void {
     const { result, finalize } = component.initialize();
     if (result instanceof Promise) {
       result.catch(() => {}); // result が投げたエラーを適宜握りつぶす
@@ -82,7 +82,7 @@ export class BiLinkMap<A, B> {
   }
 
   /** Link A to all B */
-  linkAllA(a: A, component: (b: B) => Routine<void>): void {
+  linkAllA(a: A, component: (b: B) => Rs.Resource<void>): void {
     if (this.aToB.has(a)) {
       return;
     }
@@ -92,7 +92,7 @@ export class BiLinkMap<A, B> {
   }
 
   /** Link B to all A */
-  linkAllB(b: B, component: (a: A) => Routine<void>): void {
+  linkAllB(b: B, component: (a: A) => Rs.Resource<void>): void {
     if (this.bToA.has(b)) {
       return;
     }
@@ -106,7 +106,6 @@ export class BiLinkMap<A, B> {
     const bs = this.bToA.keys();
     const promises = [...bs].map(b => this.unlink(a, b));
     this.aToB.delete(a);
-    await Promise.resolve(); // 1 tick 後に回す
     if (promises.some(p => p instanceof Promise)) {
       return Promise.all(promises).then(() => {});
     }
@@ -117,7 +116,6 @@ export class BiLinkMap<A, B> {
     const as = this.aToB.keys();
     const promises = [...as].map(a => this.unlink(a, b));
     this.bToA.delete(b);
-    await Promise.resolve(); // 1 tick 後に回す
     if (promises.some(p => p instanceof Promise)) {
       return Promise.all(promises).then(() => {});
     }

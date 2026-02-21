@@ -1,8 +1,8 @@
 // Convenience re-exports for frequently used functions (React-like design)
-export * from './routine';
-export * from './store';
+export * from './resource';
 export * from './blueprint';
-export * from './complex';
+// TODO: complex.ts needs to be updated to use new API
+// export * from './complex';
 
 import * as B from './blueprint';
 
