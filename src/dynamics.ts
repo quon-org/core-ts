@@ -1,7 +1,7 @@
-import * as Rg from './region';
-import * as Rs from './resource';
-import * as Pt from './region/portal';
-import * as C from './region/cell';
+import { Field } from './field';
+import { Atom } from './field/atom';
+import { Portal } from './field/portal';
+import { Effect, Matter } from './matter';
 import { MaybePromise } from './util';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -10,7 +10,7 @@ type BlueprintResult = any;
 type UserContext = Record<symbol, BlueprintResult>;
 
 type BLUEPRINT_GLOBAL_CONTEXT_TYPE = {
-  use<T>(rg: Rg.Region<T>): T;
+  use<T>(rg: Field<T>): T;
   getUserCtx(): UserContext;
 };
 
@@ -36,8 +36,8 @@ function getBlueprintGlobalContext(): BLUEPRINT_GLOBAL_CONTEXT_TYPE {
 
 function useContextProvider<T>(key: symbol, value: T): void {
   const global = getBlueprintGlobalContext();
-  useResource(
-    Rs.effect<void>(addFinalizeFn => {
+  useMatter(
+    new Effect<void>(addFinalizeFn => {
       const temp = global.getUserCtx()[key];
       global.getUserCtx()[key] = value;
 
@@ -131,24 +131,21 @@ II の場合は、useFoo に listener を渡すだけだと、同期的呼び出
 /**
  * Convert a Blueprint function into an Rs.Resource.
  */
-export function toRegion<T>(
-  blueprint: () => T,
-  userCtx?: UserContext
-): Rg.Region<T> {
-  return (listener: (val: T) => Rs.Resource<void>): Rs.Resource<void> => {
+export function toField<T>(dynamics: () => T, userCtx?: UserContext): Field<T> {
+  const couple = (listener: (val: T) => Matter<void>): Matter<void> => {
+    const routineUserCtx = { ...userCtx };
     // toResource は effective である。
     // toResource を実行した瞬間、blueprint
     function toResource(
       blueprint: () => T,
       history: BlueprintResult[] = [] // 既に発火した use の結果の履歴
-    ): Rs.Resource<void> {
-      return Rs.effect<void>(async addFinalizeFn => {
-        const routineUserCtx = { ...userCtx };
+    ): Matter<void> {
+      return new Effect<void>(addFinalizeFn => {
         // 現在の use の呼び出し位置
         let currentIndex = 0;
 
         // use 関数
-        function use<U>(rg: Rg.Region<U>): U {
+        function use<U>(fd: Field<U>): U {
           const index = currentIndex;
           currentIndex++;
           if (index < history.length) {
@@ -156,7 +153,7 @@ export function toRegion<T>(
             return history[index];
           }
           // 履歴が無い場合 Region を投げて終了
-          throw rg;
+          throw fd;
         }
 
         // 現在の BLUEPRINT_GLOBAL_CONTEXT を一時的に保存
@@ -170,44 +167,58 @@ export function toRegion<T>(
           currentIndex = 0;
           const result = blueprint();
           BLUEPRINT_GLOBAL_CONTEXT = tmp;
-          const { finalize } = listener(result).initialize();
-          addFinalizeFn(finalize);
+          const { vanish } = listener(result).materialize();
+          addFinalizeFn(vanish);
           return;
         } catch (e: unknown) {
           BLUEPRINT_GLOBAL_CONTEXT = tmp;
-          if (e instanceof Function) {
-            const rg = e as Rg.Region<BlueprintResult>;
-            // 継続
-            const cont = (val: BlueprintResult): Rs.Resource<void> => {
-              // 継続呼び出しのたびに履歴を更新
-              const newHistory = [...history, val];
-              return toResource(blueprint, newHistory);
-            };
-            const { finalize } = rg(cont).initialize();
-            addFinalizeFn(finalize);
-            return;
+          if (!(e instanceof Field)) {
+            throw e;
           }
+          const rg = e as Field<BlueprintResult>;
+          // 継続
+          const cont = (val: BlueprintResult): Matter<void> => {
+            // 継続呼び出しのたびに履歴を更新
+            const newHistory = [...history, val];
+            return toResource(blueprint, newHistory);
+          };
+          const { vanish } = rg.couple(cont).materialize();
+          addFinalizeFn(vanish);
+          return;
         }
       });
     }
-    return toResource(blueprint);
+    return toResource(dynamics);
   };
+
+  return new (class extends Field<T> {
+    couple(listener: (val: T) => Matter<void>): Matter<void> {
+      return couple(listener);
+    }
+  })();
 }
 
-export function use<T>(routine: Rg.Region<T>): T {
+export function use<T>(field: Field<T>): T {
   const global = getBlueprintGlobalContext();
-  return global.use(routine);
+  return global.use(field);
 }
 
-export function useAll<T, U>(
+export function useAppended<T>(
   leftBlueprint: () => T,
-  rightBlueprint: () => U
-): [T, U] {
-  return use(Rg.combine(toRegion(leftBlueprint), toRegion(rightBlueprint)));
+  rightBlueprint: () => T
+): T {
+  const leftField = toField(leftBlueprint);
+  const rightField = toField(rightBlueprint);
+  return use(leftField.append(rightField));
 }
 
-export function useResource<T>(resource: Rs.Resource<T>): T {
-  return use(Rg.fromResource(resource));
+export function useConcatenated<T>(blueprints: (() => T)[]): T {
+  const fields = blueprints.map(bp => toField(bp));
+  return use(Field.concat(fields));
+}
+
+export function useMatter<T>(matter: Matter<T>): T {
+  return use(Field.ofMatter(matter));
 }
 
 export function useEffect<T>(
@@ -216,38 +227,54 @@ export function useEffect<T>(
     abortSignal: AbortSignal
   ) => MaybePromise<T>
 ): T {
-  return useResource(
-    Rs.effect<T>((addFinalizeFn, abortSignal) => {
+  return useMatter(
+    new Effect<T>((addFinalizeFn, abortSignal) => {
       return maker(addFinalizeFn, abortSignal);
     })
   );
 }
 
 export function useTimeout(delayMs: number): void {
-  return useResource(
-    Rs.effect<void>((addFinalizeFn, abortSignal) => {
-      return new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          if (abortSignal.aborted) reject();
-          resolve();
-        }, delayMs);
+  return useEffect((addFinalizeFn, abortSignal) => {
+    return new Promise<void>(resolve => {
+      let settled = false;
+      const complete = (): void => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
 
-        addFinalizeFn(() => {
-          clearTimeout(timeout);
-          reject();
-        });
+      const timeout = setTimeout(() => {
+        complete();
+      }, delayMs);
+
+      const onAbort = (): void => {
+        clearTimeout(timeout);
+        complete();
+      };
+
+      if (abortSignal.aborted) {
+        onAbort();
+      } else {
+        abortSignal.addEventListener('abort', onAbort, { once: true });
+      }
+
+      addFinalizeFn(() => {
+        abortSignal.removeEventListener('abort', onAbort);
+        clearTimeout(timeout);
+        complete();
       });
-    })
-  );
+    });
+  });
 }
 
 // ============================================================================
 // Store-related convenience functions
 // ============================================================================
 
-export function useCast<T>(blueprint: () => T): Rg.Region<T> {
+export function useCast<T>(blueprint: () => T): Field<T> {
   const userCtx = useUserContext();
-  return useResource(Pt.cast(toRegion(() => blueprint(), userCtx)));
+  return useMatter(Portal.cast(toField(() => blueprint(), userCtx)));
 }
 
 /**
@@ -255,8 +282,8 @@ export function useCast<T>(blueprint: () => T): Rg.Region<T> {
  * The setter replaces the current value (releases old, creates new).
  * This is a convenience wrapper around Store.newCellRealm().
  */
-export function useCell<T>(initialValue: T): C.Cell<T> {
-  return useResource(C.make(initialValue));
+export function useAtom<T>(initialValue: T): Atom<T> {
+  return useMatter(Matter.ofClass(Atom, initialValue));
 }
 
 /**
@@ -265,10 +292,10 @@ export function useCell<T>(initialValue: T): C.Cell<T> {
  * Multiple values can coexist in the Store.
  * This is a convenience wrapper around Store.newPortalRealm().
  */
-export function usePortal<T>(): Pt.Portal<T> {
-  return useResource(Pt.make());
+export function usePortal<T>(): Portal<T> {
+  return useMatter(Matter.ofClass(Portal<T>));
 }
 
-export function useConnection<T>(portal: Pt.Portal<T>, val: T): void {
-  return useResource(portal.connect(val));
+export function useConnection<T>(portal: Portal<T>, val: T): void {
+  useMatter(portal.connect(val));
 }

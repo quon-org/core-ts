@@ -1,10 +1,9 @@
 // Convenience re-exports for frequently used functions (React-like design)
-export * from './resource';
-export * from './blueprint';
+export * from './dynamics';
 // TODO: complex.ts needs to be updated to use new API
 // export * from './complex';
 
-import * as B from './blueprint';
+import * as B from './dynamics';
 
 /**
  * Uses a Routine within a Blueprint.
@@ -58,7 +57,7 @@ export const useConnection = B.useConnection;
  * @param blueprint A function that takes a value from the source and returns a new value (or performs side effects).
  * @returns A new Source emitting the derived values.
  */
-export const useDerivation = B.useDerivation;
+export const useCast = B.useCast;
 
 /**
  * Runs two Blueprints in parallel and returns their results as a tuple.
@@ -66,22 +65,9 @@ export const useDerivation = B.useDerivation;
  * @param rightBlueprint The second Blueprint.
  * @returns A tuple containing the results of both Blueprints.
  */
-export const useAll = B.useAll;
+export const useConcatenated = B.useConcatenated;
 
-/**
- * Forks a Blueprint execution into a separate Fiber (background task).
- * The forked Blueprint runs independently.
- * @param blueprint The Blueprint to fork.
- * @returns A Fiber representing the running task.
- */
-export const useFork = B.useFork;
-
-/**
- * Joins a forked Fiber, waiting for its completion and returning its result.
- * @param fiber The Fiber to join.
- * @returns The result of the forked Blueprint.
- */
-export const useJoin = B.useJoin;
+export const useAppended = B.useAppended;
 
 /**
  * Converts a Blueprint function into a Routine.
@@ -89,4 +75,4 @@ export const useJoin = B.useJoin;
  * @param blueprint The Blueprint function.
  * @returns A Routine representing the Blueprint.
  */
-export const toRoutine = B.toRoutine;
+export const toField = B.toField;

@@ -1,4 +1,4 @@
-import * as Rs from './resource';
+import * as Rs from './matter';
 import { MaybePromise } from './util';
 
 export class BiLinkMap<A, B> {
@@ -55,12 +55,12 @@ export class BiLinkMap<A, B> {
     return this.bToA.keys();
   }
 
-  link(a: A, b: B, component: Rs.Resource<void>): void {
-    const { result, finalize } = component.initialize();
+  link(a: A, b: B, component: Rs.Matter<void>): void {
+    const { result, vanish } = component.materialize();
     if (result instanceof Promise) {
       result.catch(() => {}); // result が投げたエラーを適宜握りつぶす
     }
-    this.addAB(a, b, finalize);
+    this.addAB(a, b, vanish);
   }
 
   /** Unlink A and B */
@@ -82,7 +82,7 @@ export class BiLinkMap<A, B> {
   }
 
   /** Link A to all B */
-  linkAllA(a: A, component: (b: B) => Rs.Resource<void>): void {
+  linkAllA(a: A, component: (b: B) => Rs.Matter<void>): void {
     if (this.aToB.has(a)) {
       return;
     }
@@ -92,7 +92,7 @@ export class BiLinkMap<A, B> {
   }
 
   /** Link B to all A */
-  linkAllB(b: B, component: (a: A) => Rs.Resource<void>): void {
+  linkAllB(b: B, component: (a: A) => Rs.Matter<void>): void {
     if (this.bToA.has(b)) {
       return;
     }

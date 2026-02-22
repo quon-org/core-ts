@@ -12,7 +12,7 @@ export default [
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
-        project: './test.tsconfig.json',
+        project: './tsconfig.json',
       },
       globals: {
         ...globals.browser,
