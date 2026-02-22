@@ -1,5 +1,5 @@
-import * as Rs from './matter';
-import { MaybePromise } from './util';
+import * as Rs from '@/matter';
+import { MaybePromise } from '@/util';
 
 export class BiLinkMap<A, B> {
   private aToB = new Map<A, Map<B, () => MaybePromise<void>>>();
@@ -45,6 +45,14 @@ export class BiLinkMap<A, B> {
     if (this.finalizing.get(a)?.size === 0) {
       this.finalizing.delete(a);
     }
+  }
+
+  getA(b: B): Iterable<A> {
+    return this.bToA.get(b)?.keys() ?? [];
+  }
+
+  getB(a: A): Iterable<B> {
+    return this.aToB.get(a)?.keys() ?? [];
   }
 
   getAs(): Iterable<A> {

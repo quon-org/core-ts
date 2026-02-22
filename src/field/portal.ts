@@ -14,10 +14,8 @@ export class Portal<V> extends Field<V> implements Presence<Portal<V>> {
 
   couple(listener: (val: V) => Matter<void>): Matter<void> {
     return new Effect(addFinalizeFn => {
-      const key = this.nextKey++;
-
       // Connect to all existing entries
-      this.biLinks.linkAllB(listener, () => {
+      this.biLinks.linkAllB(listener, key => {
         return listener(this.keyToValue.get(key)!);
       });
 

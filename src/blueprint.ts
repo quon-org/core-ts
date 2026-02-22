@@ -1,8 +1,9 @@
-import { Field } from './field';
-import { Atom } from './field/atom';
-import { Portal } from './field/portal';
-import { Effect, Matter } from './matter';
-import { MaybePromise } from './util';
+import { Field } from '@/field';
+import { Atom } from '@/field/atom';
+import { Ensemble } from '@/field/ensemble';
+import { Portal } from '@/field/portal';
+import { Effect, Matter } from '@/matter';
+import { MaybePromise } from '@/util';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlueprintResult = any;
@@ -294,6 +295,10 @@ export function useAtom<T>(initialValue: T): Atom<T> {
  */
 export function usePortal<T>(): Portal<T> {
   return useMatter(Matter.ofClass(Portal<T>));
+}
+
+export function useEnsemble<T>(): Ensemble<T> {
+  return useMatter(Matter.ofClass(Ensemble<T>));
 }
 
 export function useConnection<T>(portal: Portal<T>, val: T): void {

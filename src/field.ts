@@ -1,4 +1,4 @@
-import { Matter } from './matter';
+import { Matter } from '@/matter';
 
 /**
  * Field represents a Matter that manages a Matter
@@ -48,9 +48,6 @@ export abstract class Field<V> {
       }
     })();
   }
-
-  // TODO
-  // public groupBy<K>(keyFn: (val: V) => K): Field<{ key: K; group: Field<V> }> {
 
   public static concat<T>(fields: Field<T>[]): Field<T> {
     return new (class extends Field<T> {

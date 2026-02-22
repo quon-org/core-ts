@@ -13,6 +13,8 @@ import {
   createContext,
 } from '../src';
 import { Atom } from '../src/field/atom';
+import { useEnsemble } from '@/blueprint';
+import { useArray, useGroupBy, useMemoize } from '@/complex';
 
 const useLog = (logs: LogCapture, label: string, releaseLabel?: string): void =>
   useEffect(addRelease => {
@@ -348,86 +350,144 @@ describe('Blueprint basic functionality', () => {
     });
   });
 
-  describe('Blueprint multiple cell dependencies', () => {});
+  describe('Field groupBy functionality', () => {
+    it('should create and remove groups by key, and route values only to matched group', async () => {
+      const logs = new LogCapture();
 
-  // TODO: Re-enable this test after updating complex.ts to use new API
-  // describe('useDistribution works correctly', async () => {
-  //   const logs = new LogCapture();
+      const blueprint = (): void => {
+        const source = useEnsemble<number>();
+        const grouped = useGroupBy(source, v => (v % 2 === 0 ? 'even' : 'odd'));
 
-  //   const blueprint = (): void => {
-  //     const source = useAtom<
-  //       {
-  //         id: string;
-  //         value: number;
-  //       }[]
-  //     >([]);
-  //     const distribution = useDistribution(source, v => v.id);
+        useCast(() => {
+          const { key, group } = use(grouped);
+          useLog(logs, `group+: ${key}`, `group-: ${key}`);
+          const v = use(group);
+          useLog(logs, `${key}: ${v}`);
+        });
 
-  //     useCast(distribution, (dataStore, id) => {
-  //       useLog(logs, `init: ${id}`, `fin: ${id}`);
-  //       const valueAtom = useMemoize(dataStore.map(({ value }) => value));
-  //       useCast(value() => {
-  //         useLog(logs, `value: ${id}: ${value}`);
-  //       });
-  //     });
+        useEffect(() => source.add(1));
+        useEffect(() => source.add(3));
+        useEffect(() => source.add(2));
 
-  //     useTimeout(10);
+        useTimeout(10);
+        useEffect(() => source.remove(1));
+        useEffect(() => source.remove(3));
 
-  //     useEffect(() => {
-  //       source.set([
-  //         { id: 'a', value: 1 },
-  //         { id: 'b', value: 2 },
-  //         { id: 'c', value: 3 },
-  //       ]);
-  //     });
+        useTimeout(10);
+        useEffect(() => source.add(5));
 
-  //     useTimeout(10);
+        useTimeout(10);
+        useEffect(() => source.remove(2));
+        useEffect(() => source.remove(5));
+      };
 
-  //     useEffect(() => {
-  //       source.set([
-  //         { id: 'a', value: 1 },
-  //         { id: 'b', value: 2 },
-  //       ]);
-  //     });
+      const app = toField(blueprint).asMatter().materialize();
+      await new Promise(resolve => setTimeout(resolve, 50));
 
-  //     useTimeout(10);
+      const result = logs.expect([
+        'group+: odd',
+        'odd: 1',
+        'odd: 3',
+        'group+: even',
+        'even: 2',
+        'group-: odd',
+        'group+: odd',
+        'odd: 5',
+        'group-: even',
+        'group-: odd',
+      ]);
+      assert.strictEqual(result.passed, true, result.message);
 
-  //     useEffect(() => {
-  //       source.set([
-  //         { id: 'b', value: 2 },
-  //         { id: 'c', value: 3 },
-  //       ]);
-  //     });
+      await app.vanish();
+    });
+  });
 
-  //     useTimeout(10);
+  describe('useDistribution works correctly', async () => {
+    const logs = new LogCapture();
 
-  //     useEffect(() => {
-  //       source.set([
-  //         { id: 'b', value: 100 },
-  //         { id: 'c', value: 3 },
-  //       ]);
-  //     });
-  //   };
+    const blueprint = (): void => {
+      const source = useAtom<
+        {
+          id: string;
+          value: number;
+        }[]
+      >([]);
+      const [dataField, orderField] = useArray(source, v => v.id);
 
-  //   const app = toField(blueprint).asMatter().materialize();
-  //   await new Promise(resolve => setTimeout(resolve, 50));
+      useCast(() => {
+        const data = use(dataField);
+        useLog(logs, `key+: ${data.key}`, `key-: ${data.key}`);
+        const memoizedValue = useMemoize(data.value.map(v => v.value));
+        const value = use(memoizedValue);
+        useLog(logs, `value: ${data.key}: ${value}`);
+      });
 
-  //   const result = logs.expect([
-  //     'init: a',
-  //     'value: a: 1',
-  //     'init: b',
-  //     'value: b: 2',
-  //     'init: c',
-  //     'value: c: 3',
-  //     'fin: c',
-  //     'value: b: 2',
-  //     'init: c',
-  //     'value: c: 3',
-  //     'fin: a',
-  //     'value: b: 100',
-  //   ]);
-  //   assert.strictEqual(result.passed, true, result.message);
+      useCast(() => {
+        const order = use(orderField);
+        useLog(logs, `order: ${order.join(',')}`);
+      });
 
-  //   await app.vanish();
-  // });
+      useTimeout(10);
+
+      useEffect(() => {
+        source.set([
+          { id: 'a', value: 1 },
+          { id: 'b', value: 2 },
+          { id: 'c', value: 3 },
+        ]);
+      });
+
+      useTimeout(10);
+
+      useEffect(() => {
+        source.set([
+          { id: 'a', value: 1 },
+          { id: 'b', value: 2 },
+        ]);
+      });
+
+      useTimeout(10);
+
+      useEffect(() => {
+        source.set([
+          { id: 'b', value: 2 },
+          { id: 'c', value: 3 },
+        ]);
+      });
+
+      useTimeout(10);
+
+      useEffect(() => {
+        source.set([
+          { id: 'b', value: 100 },
+          { id: 'c', value: 3 },
+        ]);
+      });
+    };
+
+    const app = toField(blueprint).asMatter().materialize();
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    const result = logs.expect([
+      'order: ',
+      'key+: a',
+      'value: a: 1',
+      'key+: b',
+      'value: b: 2',
+      'key+: c',
+      'value: c: 3',
+      'order: a,b,c',
+      'order: a,b',
+      'key-: c',
+      'key+: c',
+      'value: c: 3',
+      'order: b,c',
+      'key-: a',
+      'value: b: 100',
+      'order: b,c',
+    ]);
+    assert.strictEqual(result.passed, true, result.message);
+
+    await app.vanish();
+  });
 });

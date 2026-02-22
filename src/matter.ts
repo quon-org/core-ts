@@ -1,4 +1,4 @@
-import { MaybePromise } from './util';
+import { MaybePromise } from '@/util';
 
 export interface Presence<T> {
   result: MaybePromise<T>;

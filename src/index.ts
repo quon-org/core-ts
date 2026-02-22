@@ -1,9 +1,7 @@
-// Convenience re-exports for frequently used functions (React-like design)
-export * from './dynamics';
 // TODO: complex.ts needs to be updated to use new API
 // export * from './complex';
 
-import * as B from './dynamics';
+import * as B from '@/blueprint';
 
 /**
  * Uses a Routine within a Blueprint.
@@ -42,6 +40,8 @@ export const useAtom = B.useAtom;
  */
 export const usePortal = B.usePortal;
 
+export const useEnsemble = B.useEnsemble;
+
 /**
  * Connects a value to a Portal.
  * The value remains connected as long as the current Blueprint scope is active.
@@ -76,3 +76,5 @@ export const useAppended = B.useAppended;
  * @returns A Routine representing the Blueprint.
  */
 export const toField = B.toField;
+
+export const createContext = B.createContext;
