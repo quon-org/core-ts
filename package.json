@@ -1,59 +1,20 @@
 {
-  "name": "@quon/core",
-  "version": "0.5.1",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "type": "module",
+  "name": "quon",
+  "private": true,
   "scripts": {
-    "clean": "rm -rf dist",
-    "build": "npm run clean && tsc -p tsconfig.build.json",
-    "publish": "npm run build && npm publish --access public",
-    "lint": "eslint src/**/*.{ts,tsx}",
-    "lint:fix": "eslint src/**/*.{ts,tsx} --fix",
-    "format": "prettier --write src/**/*.{ts,tsx,js,json}",
-    "format:check": "prettier --check src/**/*.{ts,tsx,js,json}",
-    "test": "node --test --import tsx tests/**/*.test.ts",
-    "test:watch": "node --test --watch --import tsx tests/**/*.test.ts",
-    "examples": "tsx examples/basic.ts",
-    "benchmark": "for file in benchmarks/*.bench.ts; do tsx \"$file\"; done"
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "lint": "pnpm -r run lint",
+    "format": "prettier --write 'packages/*/src/**/*.{ts,tsx}'",
+    "format:check": "prettier --check 'packages/*/src/**/*.{ts,tsx}'"
   },
-  "keywords": [
-    "reactive",
-    "reactive-streams",
-    "state-management",
-    "blueprint",
-    "async",
-    "typescript"
-  ],
-  "author": "yukikurage",
-  "license": "MIT",
-  "description": "A lightweight reactive programming library built around Field/Matter architecture with Blueprint DSL",
-  "files": [
-    "dist/**/*",
-    "README.md",
-    "package.json"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/quon-org/quon-ts.git"
-  },
-  "bugs": {
-    "url": "https://github.com/quon-org/quon-ts/issues"
-  },
-  "homepage": "https://github.com/quon-org/quon-ts#readme",
   "devDependencies": {
     "@eslint/js": "^9.39.1",
-    "@types/benchmark": "^2.1.5",
-    "@types/node": "^24.3.3",
     "@typescript-eslint/eslint-plugin": "^8.43.0",
     "@typescript-eslint/parser": "^8.43.0",
-    "benchmark": "^2.1.4",
     "eslint": "^9.35.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^16.5.0",
-    "immutable": "^5.1.4",
-    "prettier": "^3.6.2",
-    "tsx": "^4.20.5",
-    "typescript": "^5.9.2"
+    "prettier": "^3.6.2"
   }
 }

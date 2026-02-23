@@ -1,0 +1,48 @@
+{
+  "name": "@quon/core",
+  "version": "0.5.1",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+    "test": "node --test --import tsx tests/**/*.test.ts",
+    "test:watch": "node --test --watch --import tsx tests/**/*.test.ts",
+    "lint": "tsc --noEmit",
+    "benchmark": "for file in benchmarks/*.bench.ts; do tsx \"$file\"; done"
+  },
+  "keywords": [
+    "reactive",
+    "reactive-streams",
+    "state-management",
+    "blueprint",
+    "async",
+    "typescript"
+  ],
+  "author": "yukikurage",
+  "license": "MIT",
+  "description": "A lightweight reactive programming library built around Field/Matter architecture with Blueprint DSL",
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "package.json"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quon-org/quon-ts.git",
+    "directory": "packages/core"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/benchmark": "^2.1.5",
+    "@types/node": "^24.3.3",
+    "benchmark": "^2.1.4",
+    "immutable": "^5.1.4",
+    "tsc-alias": "^1.8.16",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}

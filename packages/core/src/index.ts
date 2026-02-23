@@ -1,5 +1,15 @@
 import * as B from '@/blueprint';
 
+// Class exports (needed for instanceof checks and direct usage)
+export { Field } from '@/field';
+export { Matter, Effect } from '@/matter';
+export type { Presence, PresenceClass } from '@/matter';
+export { Atom } from '@/field/atom';
+export { Portal } from '@/field/portal';
+export { Ensemble } from '@/field/ensemble';
+export type { MaybePromise } from '@/util';
+export type { Context } from '@/blueprint';
+
 /**
  * Uses a Field within a Blueprint.
  * The Field is coupled when the Blueprint executes this line.
