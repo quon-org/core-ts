@@ -29,7 +29,7 @@ function getBlueprintGlobalContext(): BLUEPRINT_GLOBAL_CONTEXT_TYPE {
   if (global === undefined) {
     throw new Error(
       'Blueprint context access outside of Blueprint execution. ' +
-        'Make sure to call this function only within a Blueprint (inside toRealm or Store.fromBlueprint).'
+        'Make sure to call this function only within a Blueprint (inside toField).'
     );
   }
   return global;
@@ -102,14 +102,14 @@ const c = () => {
   return c;
 }
 
-### I. 通常の blueprint
-まず、最終的には blueprint () => T を Rg.Region<T> に変換したい。
-Rg.Region<T> ~ (listener: (val: T) => Rs.Resource<void>) => Rs.Resource<void> であるので、
-listener が与えられていることを前提として、 Rs.Resource<void> を作れば良い。
+### I. 通常の Blueprint
+まず、最終的には blueprint () => T を Field<T> に変換したい。
+Field<T> ~ (listener: (val: T) => Matter<void>) => Matter<void> であるので、
+listener が与えられていることを前提として、 Matter<void> を作れば良い。
 
-今、Rs.Resource<void> を実行中とする。
-たとえば、一度目の useFoo : Rg.Region<A> のところまで来た。これと listener: (val : A) => Rs.Resource<void> を用意してより大きな Rs.Resource<void> を作る。
-この listener は、まず、通常の blueprint だと、発火履歴と c の組を、再帰的に実行したものである。(つまり、発火履歴があるところまでは c をそのまま実行し、発火履歴が無いところから先だけを仮想的に実行する)
+今、Matter<void> を実行中とする。
+たとえば、一度目の useFoo : Field<A> のところまで来た。これと listener: (val : A) => Matter<void> を用意してより大きな Matter<void> を作る。
+この listener は、まず、通常の Blueprint だと、発火履歴と c の組を、再帰的に実行したものである。(つまり、発火履歴があるところまでは c をそのまま実行し、発火履歴が無いところから先だけを仮想的に実行する)
 そして、useFoo に作った listener を渡して自身は throw すれば、useFoo の中で listener が呼び出されるので、そこで c の続きを実行すれば良い。
 
 
@@ -121,23 +121,23 @@ listener が与えられていることを前提として、 Rs.Resource<void> �
 そして、useFoo を呼び出したあと、result に値が入っていればそれを返し、そうでなければ throw すれば良い。
 
 ### 注意点
-I の場合は、厳密には useFoo を実行 **していない** 何故なら、単純に Region に作った listener を渡しているだけで、帰ってきた Rs.Resource<void> を実行していないからである。
-II の場合は、useFoo に listener を渡すだけだと、同期的呼び出しが判定できない。したがって、useFoo に listener を渡した後、 Rs.Resource<void> を"実行"する必要がある。
-コレが何を意味しているかというと、I の手法は Resource の実装詳細によらず使えるのに対し(Monad ならできる)、II の手法は Resource の実装詳細によってしまっているということだ。
+I の場合は、厳密には useFoo を実行 **していない** 何故なら、単純に Field に作った listener を渡しているだけで、帰ってきた Matter<void> を実行していないからである。
+II の場合は、useFoo に listener を渡すだけだと、同期的呼び出しが判定できない。したがって、useFoo に listener を渡した後、 Matter<void> を"実行"する必要がある。
+コレが何を意味しているかというと、I の手法は Matter の実装詳細によらず使えるのに対し(Monad ならできる)、II の手法は Matter の実装詳細によってしまっているということだ。
 ここは抽象化が出来そうだが、とりあえず現状は一つの関数に全部まとめている。
 
 ↑の問題で、II の方針だとキャンセル処理を保持しておかなければいけない
 */
 
 /**
- * Convert a Blueprint function into an Rs.Resource.
+ * Convert a Blueprint function into a Field.
  */
 export function toField<T>(dynamics: () => T, userCtx?: UserContext): Field<T> {
   const couple = (listener: (val: T) => Matter<void>): Matter<void> => {
-    const routineUserCtx = { ...userCtx };
-    // toResource は effective である。
-    // toResource を実行した瞬間、blueprint
-    function toResource(
+    const fieldUserCtx = { ...userCtx };
+    // toMatter は effective である。
+    // toMatter を実行した瞬間、blueprint の実行が開始される
+    function toMatter(
       blueprint: () => T,
       history: BlueprintResult[] = [] // 既に発火した use の結果の履歴
     ): Matter<void> {
@@ -153,7 +153,7 @@ export function toField<T>(dynamics: () => T, userCtx?: UserContext): Field<T> {
             // 履歴がある場合
             return history[index];
           }
-          // 履歴が無い場合 Region を投げて終了
+          // 履歴が無い場合 Field を投げて終了
           throw fd;
         }
 
@@ -162,7 +162,7 @@ export function toField<T>(dynamics: () => T, userCtx?: UserContext): Field<T> {
         // BLUEPRINT_GLOBAL_CONTEXT をセット
         BLUEPRINT_GLOBAL_CONTEXT = {
           use: use,
-          getUserCtx: (): UserContext => routineUserCtx,
+          getUserCtx: (): UserContext => fieldUserCtx,
         };
         try {
           currentIndex = 0;
@@ -181,7 +181,7 @@ export function toField<T>(dynamics: () => T, userCtx?: UserContext): Field<T> {
           const cont = (val: BlueprintResult): Matter<void> => {
             // 継続呼び出しのたびに履歴を更新
             const newHistory = [...history, val];
-            return toResource(blueprint, newHistory);
+            return toMatter(blueprint, newHistory);
           };
           const { vanish } = rg.couple(cont).materialize();
           addFinalizeFn(vanish);
@@ -189,7 +189,7 @@ export function toField<T>(dynamics: () => T, userCtx?: UserContext): Field<T> {
         }
       });
     }
-    return toResource(dynamics);
+    return toMatter(dynamics);
   };
 
   return new (class extends Field<T> {
@@ -270,7 +270,7 @@ export function useTimeout(delayMs: number): void {
 }
 
 // ============================================================================
-// Store-related convenience functions
+// State-related convenience functions
 // ============================================================================
 
 export function useCast<T>(blueprint: () => T): Field<T> {
@@ -279,19 +279,16 @@ export function useCast<T>(blueprint: () => T): Field<T> {
 }
 
 /**
- * Create a single-value cell within a
- * The setter replaces the current value (releases old, creates new).
- * This is a convenience wrapper around Store.newCellRealm().
+ * Create a single-value state (Atom) within a Blueprint.
+ * The Atom can be updated with `set()` or `modify()`, which triggers re-execution of dependent Blueprints.
  */
 export function useAtom<T>(initialValue: T): Atom<T> {
   return useMatter(Matter.ofClass(Atom, initialValue));
 }
 
 /**
- * Create a multi-value portal within a
- * The setter is a Blueprint function that adds/removes values.
- * Multiple values can coexist in the Store.
- * This is a convenience wrapper around Store.newPortalRealm().
+ * Create a multi-value state (Portal) within a Blueprint.
+ * Values can be dynamically connected and disconnected via `useConnection()`.
  */
 export function usePortal<T>(): Portal<T> {
   return useMatter(Matter.ofClass(Portal<T>));

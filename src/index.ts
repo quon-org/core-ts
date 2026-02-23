@@ -1,13 +1,10 @@
-// TODO: complex.ts needs to be updated to use new API
-// export * from './complex';
-
 import * as B from '@/blueprint';
 
 /**
- * Uses a Routine within a Blueprint.
- * The Routine is initialized when the Blueprint executes this line.
- * If the Routine is asynchronous, the Blueprint execution pauses until it completes.
- * @param routine The Routine to use.
+ * Uses a Field within a Blueprint.
+ * The Field is coupled when the Blueprint executes this line.
+ * If the underlying Matter is asynchronous, the Blueprint execution pauses until it completes.
+ * @param field The Field to use.
  */
 export const use = B.use;
 
@@ -40,6 +37,11 @@ export const useAtom = B.useAtom;
  */
 export const usePortal = B.usePortal;
 
+/**
+ * Creates a dynamic set-based state (Ensemble).
+ * The Ensemble allows adding and removing values by identity.
+ * @returns An Ensemble instance.
+ */
 export const useEnsemble = B.useEnsemble;
 
 /**
@@ -51,30 +53,36 @@ export const useEnsemble = B.useEnsemble;
 export const useConnection = B.useConnection;
 
 /**
- * Derives a new Source by applying a Blueprint to each value emitted by the input Source.
- * This is similar to `switchMap` in other reactive libraries, but uses a Blueprint for the mapping logic.
- * @param source The input Source.
- * @param blueprint A function that takes a value from the source and returns a new value (or performs side effects).
- * @returns A new Source emitting the derived values.
+ * Casts a Blueprint into a Field by running it inside a Portal.
+ * Each value emitted by the Blueprint is tracked as a Portal entry.
+ * @param blueprint A Blueprint function to cast.
+ * @returns A Field emitting the values produced by the Blueprint.
  */
 export const useCast = B.useCast;
 
 /**
- * Runs two Blueprints in parallel and returns their results as a tuple.
- * @param leftBlueprint The first Blueprint.
- * @param rightBlueprint The second Blueprint.
- * @returns A tuple containing the results of both Blueprints.
+ * Runs multiple Blueprints sequentially (concatenation) and returns the result of each.
+ * @param blueprints An array of Blueprint functions to run.
  */
 export const useConcatenated = B.useConcatenated;
 
+/**
+ * Runs two Blueprints in parallel and returns the result of either.
+ * @param leftBlueprint The first Blueprint.
+ * @param rightBlueprint The second Blueprint.
+ */
 export const useAppended = B.useAppended;
 
 /**
- * Converts a Blueprint function into a Routine.
- * The Routine can then be initialized and executed.
+ * Converts a Blueprint function into a Field.
+ * The Field can then be coupled with a listener and materialized.
  * @param blueprint The Blueprint function.
- * @returns A Routine representing the Blueprint.
+ * @returns A Field representing the Blueprint.
  */
 export const toField = B.toField;
 
+/**
+ * Creates a context for dependency injection within Blueprints.
+ * Use `useProvider(value)` in a parent Blueprint and `useConsumer()` in a child.
+ */
 export const createContext = B.createContext;

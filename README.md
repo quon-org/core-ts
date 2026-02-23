@@ -1,14 +1,15 @@
 # @quon/core
 
-A lightweight reactive programming library built around **Source**, **Routine**, and **Atom** - providing a declarative API for managing reactive resources and side effects with automatic cleanup.
+A lightweight reactive programming library built around **Field**, **Matter**, and **Atom** - providing a declarative API for managing reactive state and side effects with automatic cleanup.
 
 ## Features
 
-- **Source<T>**: Represents a reactive stream of values.
-- **Routine<T>**: Represents a task or process with a lifecycle (initialize/finalize).
-- **Blueprint DSL**: Synchronous-style syntax for composing routines.
+- **Field<T>**: Represents a reactive source of values that couples listeners via Matter.
+- **Matter<T>**: Represents a lifecycle object (materialize/vanish).
+- **Blueprint DSL**: Synchronous-style syntax for composing Fields and Matters.
 - **Atom<T>**: Managed single-value state container.
 - **Portal<T>**: Dynamic multi-value state container.
+- **Ensemble<T>**: Dynamic set-based state container.
 - **Automatic Cleanup**: Resources are released in proper order automatically.
 
 ## Installation
@@ -21,20 +22,21 @@ npm install @quon/core
 
 ```typescript
 import {
-  toRoutine,
+  toField,
   useAtom,
-  useDerivation,
+  useCast,
   useEffect,
   useTimeout,
-  useConnection,
+  use,
 } from '@quon/core';
 
 const counterApp = () => {
   // Create an atom (state)
   const count = useAtom(0);
 
-  // Derive a value and run a side effect
-  useDerivation(count, value => {
+  // Cast the atom into a Field and observe changes
+  useCast(() => {
+    const value = use(count);
     useEffect(() => {
       console.log('Count:', value);
     });
@@ -49,51 +51,50 @@ const counterApp = () => {
 };
 
 // Execute the blueprint
-const app = toRoutine(counterApp).initialize();
+const app = toField(counterApp).asMatter().materialize();
 
 // Later: cleanup
-// await app.finalize();
+// await app.vanish();
 ```
 
 ## Core Concepts
 
-### Source<T>
+### Field<T>
 
-`Source<T>` represents a stream of values that can be observed. It is the fundamental building block for reactive data flow.
+`Field<T>` represents a reactive source of values. It couples listeners to emitted values through Matter.
 
 ```typescript
-import { Source, Routine } from '@quon/core';
-
 // Transform values
-const doubled = source.map(x => x * 2);
+const doubled = field.map(x => x * 2);
 
 // Filter values
-const evens = source.filter(x => x % 2 === 0);
+const evens = field.filter(x => x % 2 === 0);
 
-// Combine sources
-const combined = Source.combineAll(source1, source2);
+// Append (merge) fields
+const merged = field1.append(field2);
 ```
 
-### Routine<T>
+### Matter<T>
 
-`Routine<T>` represents a process that produces a result `T` and has a lifecycle (it can be finalized). Blueprints are compiled into Routines.
+`Matter<T>` represents an object with a lifecycle (materialize/vanish). Blueprints are compiled into Matters via Fields.
 
 ```typescript
-import { Routine } from '@quon/core';
-
-const routine = new Routine(...);
-const { result, finalize } = routine.initialize();
+const matter = new Effect<string>((addFinalizeFn) => {
+  addFinalizeFn(() => console.log('cleanup'));
+  return 'hello';
+});
+const { result, vanish } = matter.materialize();
 
 // ... later
-await finalize();
+await vanish();
 ```
 
 ### Blueprint
 
-`Blueprint` is a synchronous-style DSL for composing Routines.
+`Blueprint` is a synchronous-style DSL for composing Fields and Matters.
 
 ```typescript
-import { toRoutine, useAtom, useEffect } from '@quon/core';
+import { toField, useAtom, useEffect } from '@quon/core';
 
 const myBlueprint = () => {
   const atom = useAtom(0);
@@ -104,12 +105,12 @@ const myBlueprint = () => {
   });
 };
 
-const app = toRoutine(myBlueprint).initialize();
+const app = toField(myBlueprint).asMatter().materialize();
 ```
 
 ### Atom<T>
 
-`Atom<T>` is a `Source<T>` that holds a single current value. It is similar to a "cell" or "signal" in other libraries.
+`Atom<T>` is a `Field<T>` that holds a single current value. It is similar to a "cell" or "signal" in other libraries.
 
 ```typescript
 const count = useAtom(0);
@@ -123,7 +124,7 @@ useEffect(() => count.modify(prev => prev + 1));
 
 ### Portal<T>
 
-`Portal<T>` is a `Source<T>` that allows dynamic connections. It represents a collection of values where items can be added or removed dynamically.
+`Portal<T>` is a `Field<T>` that allows dynamic connections. It represents a collection of values where items can be added or removed dynamically.
 
 ```typescript
 const portal = usePortal<string>();
@@ -132,21 +133,27 @@ const portal = usePortal<string>();
 useConnection(portal, 'Hello');
 ```
 
+### Ensemble<T>
+
+`Ensemble<T>` is a `Field<T>` that manages a set of values by identity. Values can be added and removed directly.
+
+```typescript
+const ensemble = useEnsemble<number>();
+
+useEffect(() => ensemble.add(1));
+useEffect(() => ensemble.add(2));
+useEffect(() => ensemble.remove(1));
+```
+
 ## API Reference
 
 ### Top-Level Exports
 
-- **`toRoutine<T>(blueprint: () => T): Routine<T>`**
-  - Converts a Blueprint function into a Routine.
+- **`toField<T>(blueprint: () => T): Field<T>`**
+  - Converts a Blueprint function into a Field.
 
-- **`useAtom<T>(initialValue: T): Atom<T>`**
-  - Creates a managed single-value state.
-
-- **`usePortal<T>(): Portal<T>`**
-  - Creates a dynamic multi-value state.
-
-- **`useDerivation<T, U>(source: Source<T>, blueprint: (val: T) => U): Source<U>`**
-  - Derives a new Source by applying a Blueprint to each value.
+- **`use<T>(field: Field<T>): T`**
+  - Uses a Field within a Blueprint.
 
 - **`useEffect<T>(maker: (addFinalizeFn, abortSignal) => T): T`**
   - Executes a side effect with cleanup.
@@ -154,27 +161,54 @@ useConnection(portal, 'Hello');
 - **`useTimeout(delayMs: number): void`**
   - Pauses execution for a specified duration.
 
+- **`useAtom<T>(initialValue: T): Atom<T>`**
+  - Creates a managed single-value state.
+
+- **`usePortal<T>(): Portal<T>`**
+  - Creates a dynamic multi-value state.
+
+- **`useEnsemble<T>(): Ensemble<T>`**
+  - Creates a dynamic set-based state.
+
 - **`useConnection<T>(portal: Portal<T>, val: T): void`**
   - Connects a value to a Portal.
 
-- **`use<T>(routine: Routine<T>): T`**
-  - Uses a Routine within a Blueprint.
+- **`useCast<T>(blueprint: () => T): Field<T>`**
+  - Casts a Blueprint into a Field by running it inside a Portal.
+
+- **`useAppended<T>(left: () => T, right: () => T): T`**
+  - Runs two Blueprints in parallel.
+
+- **`useConcatenated<T>(blueprints: (() => T)[]): T`**
+  - Runs multiple Blueprints sequentially.
+
+- **`createContext<T>(): Context<T>`**
+  - Creates a context for dependency injection.
 
 ### Classes
 
-- **`Source<T>`**
-  - `map<U>(fn: (val: T) => U): Source<U>`
-  - `flatMap<U>(fn: (val: T) => Source<U>): Source<U>`
-  - `filter(predicate: (val: T) => boolean): Source<T>`
-  - `merge(other: Source<T>): Source<T>`
-  - `combine<U>(other: Source<U>): Source<[T, U]>`
-  - `derive<U>(fn: (val: T) => Routine<U>): Routine<Source<U>>`
+- **`Field<T>`**
+  - `couple(listener: (val: T) => Matter<void>): Matter<void>`
+  - `asMatter(): Matter<void>`
+  - `map<U>(fn: (val: T) => U): Field<U>`
+  - `flatMap<U>(fn: (val: T) => Field<U>): Field<U>`
+  - `filter(predicate: (val: T) => boolean): Field<T>`
+  - `append(other: Field<T>): Field<T>`
+  - `static concat<T>(fields: Field<T>[]): Field<T>`
+  - `static pure<T>(val: T): Field<T>`
+  - `static ofMatter<T>(matter: Matter<T>): Field<T>`
 
-- **`Routine<T>`**
-  - `initialize(): { result: MaybePromise<T>, finalize: () => MaybePromise<void> }`
-  - `static all<T>(routines: Routine<T>[]): Routine<T>`
-  - `static race<T>(routines: Routine<T>[]): Routine<T>`
-  - `static resolve<T>(value: T): Routine<T>`
+- **`Matter<T>`**
+  - `materialize(): Presence<T>`
+  - `map<U>(fn: (result: T) => U): Matter<U>`
+  - `flatMap<U>(fn: (result: T) => Matter<U>): Matter<U>`
+  - `parZip<U>(other: Matter<U>): Matter<[T, U]>`
+  - `static pure<T>(value: T): Matter<T>`
+  - `static parSequence<T>(matters: Matter<T>[]): Matter<T[]>`
+  - `static ofClass<T>(Cls: PresenceClass<T>): Matter<T>`
+
+- **`Effect<T>` extends `Matter<T>`**
+  - Constructor: `new Effect<T>((addFinalizeFn, abortSignal) => T | Promise<T>)`
 
 ## License
 

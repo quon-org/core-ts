@@ -11,7 +11,7 @@ export class Atom<V> extends Field<V> implements Presence<Atom<V>> {
     super();
     this.currentValue = initValue;
 
-    // Register the initial ID so future subRgribers find it
+    // Register the initial value so future subscribers find it
     this.biLinks.linkAllA(null, listener => {
       return listener(initValue);
     });

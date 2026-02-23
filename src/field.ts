@@ -1,7 +1,7 @@
 import { Matter } from '@/matter';
 
 /**
- * Field represents a Matter that manages a Matter
+ * Field represents a reactive source that couples listeners to emitted values via Matter.
  */
 export abstract class Field<V> {
   public abstract couple(listener: (val: V) => Matter<void>): Matter<void>;

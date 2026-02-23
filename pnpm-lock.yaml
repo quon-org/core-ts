@@ -7,20 +7,13 @@ settings:
 importers:
 
   .:
-    dependencies:
+    devDependencies:
       '@eslint/js':
         specifier: ^9.39.1
         version: 9.39.1
       '@types/benchmark':
         specifier: ^2.1.5
         version: 2.1.5
-      benchmark:
-        specifier: ^2.1.4
-        version: 2.1.4
-      immutable:
-        specifier: ^5.1.4
-        version: 5.1.4
-    devDependencies:
       '@types/node':
         specifier: ^24.3.3
         version: 24.8.1
@@ -30,6 +23,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^8.43.0
         version: 8.46.1(eslint@9.38.0)(typescript@5.9.3)
+      benchmark:
+        specifier: ^2.1.4
+        version: 2.1.4
       eslint:
         specifier: ^9.35.0
         version: 9.38.0
@@ -39,6 +35,9 @@ importers:
       globals:
         specifier: ^16.5.0
         version: 16.5.0
+      immutable:
+        specifier: ^5.1.4
+        version: 5.1.4
       prettier:
         specifier: ^3.6.2
         version: 3.6.2

@@ -10,7 +10,7 @@ export type PresenceClass<T, Args extends unknown[]> = new (
 ) => Presence<T>;
 
 /**
- * Resource represents a object that has a lifecycle (initialize/finalize).
+ * Matter represents an object that has a lifecycle (materialize/vanish).
  */
 export abstract class Matter<T> {
   public abstract materialize(): Presence<T>;
@@ -40,7 +40,7 @@ export abstract class Matter<T> {
         if (result instanceof Promise) {
           innerResult = result.then(val => {
             if (isVanished) {
-              throw new Error('Resource vanished');
+              throw new Error('Matter vanished');
             }
             const inner = fn(val).materialize();
             innerVanish = inner.vanish;
@@ -84,8 +84,8 @@ export abstract class Matter<T> {
   }): Matter<T> {
     return new (class extends Matter<T> {
       materialize(): Presence<T> {
-        const initializeResults = matters.map(Resource => {
-          return Resource.materialize();
+        const initializeResults = matters.map(matter => {
+          return matter.materialize();
         });
         const results = initializeResults.map(result => result.result);
         const vanishes = initializeResults.map(result => result.vanish);
@@ -145,7 +145,7 @@ export abstract class Matter<T> {
 }
 
 // ============================================================================
-// Core Resource Constructors
+// Core Matter Constructors
 // ============================================================================
 
 export class Effect<T> extends Matter<T> {

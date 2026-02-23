@@ -68,7 +68,6 @@ export function useGroupBy<V, K>(
       addFinalizeFn(async () => {
         await newGroupState.portal.remove(source);
         newGroupState.count--;
-        console.log(`key: ${key}, count: ${newGroupState.count}`);
         if (newGroupState.count === 0) {
           groupsRef.delete(key);
           await newGroupState.vanish();

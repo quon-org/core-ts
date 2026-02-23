@@ -78,10 +78,10 @@ export class BiLinkMap<A, B> {
     const maybePromise = finalize();
     this.removeAB(a, b);
     if (maybePromise instanceof Promise) {
-      const finalizaingPromise = maybePromise.then(() => {
-        this.removeFinalizingAB(a, b, finalizaingPromise);
+      const finalizingPromise = maybePromise.then(() => {
+        this.removeFinalizingAB(a, b, finalizingPromise);
       });
-      this.addFinalizingAB(a, b, finalizaingPromise);
+      this.addFinalizingAB(a, b, finalizingPromise);
       return Promise.all([
         ...(this.finalizing.get(a)?.get(b)?.values() ?? []),
       ]).then(() => {});

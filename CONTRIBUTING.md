@@ -29,7 +29,7 @@ Thank you for your interest in contributing to Quon Core!
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/your-feature`
 3. Make your changes
-4. Run tests and linting: `npm test && npm run lint`
+4. Run tests and linting: `pnpm test && pnpm run lint`
 5. Commit with clear messages
 6. Push and create a pull request
 

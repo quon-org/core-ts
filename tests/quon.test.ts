@@ -224,10 +224,10 @@ describe('Blueprint basic functionality', () => {
       // Wait for all operations to complete
       await new Promise(resolve => setTimeout(resolve, 60));
 
-      // CellRealm is synchronous, so updates happen immediately:
-      // When setRefetch(5), first store sees 5 immediately and creates portal value
+      // Atom is synchronous, so updates happen immediately:
+      // When refetchAtom.set(5), first cast sees 5 immediately and creates portal value
       // Then old values (0) are released
-      // Then second store (with timeout) completes and creates portal value (105)
+      // Then second cast (with timeout) completes and creates portal value (105)
       // Then old value (100) is released
       const result = logs.expect([
         'created: 0',
@@ -248,7 +248,7 @@ describe('Blueprint basic functionality', () => {
   });
 
   describe('Blueprint cancellation functionality', () => {
-    it('should be cancellable white executing', async () => {
+    it('should be cancellable while executing', async () => {
       const logs = new LogCapture();
 
       const blueprint = (): void => {
@@ -271,7 +271,7 @@ describe('Blueprint basic functionality', () => {
         // -> "value1: 1", "value1: 2", "value2: 100"
         useEffect(() => cell2.set(200));
         useTimeout(15);
-        // Resume from `Blueprint.use(cell2)`  (no value1 logs)
+        // Resume from `use(cell2)` (no value1 logs)
         // -> "value2: 200"
       };
 
@@ -329,8 +329,8 @@ describe('Blueprint basic functionality', () => {
     });
   });
 
-  describe('Store resource management', () => {
-    it('should be safe to call release() multiple times', async () => {
+  describe('Matter resource management', () => {
+    it('should be safe to call vanish() multiple times', async () => {
       const logs = new LogCapture();
 
       const blueprint = (): void => {
@@ -340,7 +340,7 @@ describe('Blueprint basic functionality', () => {
       const app = toField(blueprint).asMatter().materialize();
       await new Promise(resolve => setTimeout(resolve, 10));
 
-      // Call release multiple times - should be idempotent
+      // Call vanish multiple times - should be idempotent
       await app.vanish();
       await app.vanish();
       await app.vanish();
@@ -402,7 +402,7 @@ describe('Blueprint basic functionality', () => {
     });
   });
 
-  describe('useDistribution works correctly', async () => {
+  describe('useArray works correctly', async () => {
     const logs = new LogCapture();
 
     const blueprint = (): void => {
