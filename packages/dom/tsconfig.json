@@ -6,15 +6,26 @@
       "ES2020",
       "DOM"
     ],
+    "paths": {
+      "quon/jsx-runtime": [
+        "./src/jsx-runtime.ts"
+      ],
+      "quon/jsx-dev-runtime": [
+        "./src/jsx-dev-runtime.ts"
+      ],
+      "quon": [
+        "./src/index.ts"
+      ]
+    },
     "noEmit": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "react",
-    "jsxFactory": "jsx",
-    "jsxFragmentFactory": "Fragment"
+    "jsx": "react-jsx",
+    "jsxImportSource": "quon"
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "example/**/*"
   ],
   "exclude": [
     "node_modules",

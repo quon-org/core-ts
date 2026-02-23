@@ -3,7 +3,9 @@
     "target": "ES2022",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -16,5 +18,14 @@
     "declarationMap": true,
     "sourceMap": true,
     "removeComments": false
-  }
+  },
+  "files": [],
+  "references": [
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/dom"
+    }
+  ]
 }

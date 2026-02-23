@@ -1,9 +1,9 @@
-import { Field } from '@/field';
-import { Atom } from '@/field/atom';
-import { Ensemble } from '@/field/ensemble';
-import { Portal } from '@/field/portal';
-import { Effect, Matter } from '@/matter';
-import { MaybePromise } from '@/util';
+import { Field } from './field';
+import { Atom } from './field/atom';
+import { Ensemble } from './field/ensemble';
+import { Portal } from './field/portal';
+import { Effect, Matter } from './matter';
+import { MaybePromise } from './util';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlueprintResult = any;

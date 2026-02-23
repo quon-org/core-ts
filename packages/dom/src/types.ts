@@ -1,21 +1,17 @@
-import { Field } from "@quon/core";
+import { Field } from '@quon/core';
 
 /**
  * Element type - the core type representing DOM elements in the library
  */
-export type Element = ElementPrimitive | ElementArray;
-
-type ElementPrimitive =
+export type Element =
   | Field<Element> // Component (Blueprint-based) or reactive value
-  | SortedElementStore
+  | SortedElement
   | ElementNode // DOM element description
   | string // Text node
-  | number // Text node
-  | null
-  | undefined;
-
-/** Array of Elements (interface to break circular type reference) */
-export interface ElementArray extends Array<Element> {}
+  | number // Text node (number)
+  | null // Null/undefined (renders nothing)
+  | undefined
+  | Array<Element>; // Array of elements (for fragments or multiple children)
 
 /**
  * ElementNode represents a DOM element with tag, props, and children
@@ -32,24 +28,29 @@ export class ElementNode {
   }
 }
 
-export class SortedElementStore {
-  keysField: Field<unknown[]>;
+export class SortedElement {
+  sortBy: Field<unknown[]> | ((x: unknown, y: unknown) => Field<boolean>);
   elementsField: Field<Element>;
 
   constructor(
-    keysField: Field<unknown[]>,
+    sortBy: Field<unknown[]> | ((x: unknown, y: unknown) => Field<boolean>),
     elementsField: Field<Element>
   ) {
-    this.keysField = keysField;
+    this.sortBy = sortBy;
     this.elementsField = elementsField;
   }
 }
 
 /**
+ * Helper type to allow Field values for a given type
+ */
+export type MaybeReactive<T> = T | Field<T>;
+
+/**
  * Props type - supports both static values and reactive Field values
  */
 export type Props = {
-  [key: string]: unknown | Field<unknown>;
+  [key: string]: MaybeReactive<unknown>;
   ref?: RefCallback;
   key?: string | number;
 };
@@ -63,11 +64,6 @@ export type RefCallback = (element: HTMLElement) => void;
  * Component function type - returns an Element
  */
 export type Component<P = Record<string, unknown>> = (props: P) => Element;
-
-/**
- * Helper type to allow Field values for a given type
- */
-export type MaybeReactive<T> = T | Field<T>;
 
 /**
  * JSX intrinsic elements - maps HTML tag names to their props
@@ -98,14 +94,15 @@ export type QuonIntrinsicElements = {
 };
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
-    interface IntrinsicElements extends QuonIntrinsicElements {}
+    type IntrinsicElements = QuonIntrinsicElements;
     interface ElementAttributesProperty {
       props: unknown;
     }
     interface ElementChildrenAttribute {
       children: unknown;
     }
-    type Element = import("./types").Element;
+    type Element = import('./types').Element;
   }
 }

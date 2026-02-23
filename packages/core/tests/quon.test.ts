@@ -1,5 +1,4 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert';
+import { describe, it, expect } from 'vitest';
 import { LogCapture } from './test-utils';
 import {
   toField,
@@ -13,8 +12,8 @@ import {
   createContext,
 } from '../src';
 import { Atom } from '../src/field/atom';
-import { useEnsemble } from '@/blueprint';
-import { useArray, useGroupBy, useMemoize } from '@/complex';
+import { useEnsemble } from '../src/blueprint';
+import { useArray, useGroupBy, useMemoize } from '../src/complex';
 
 const useLog = (logs: LogCapture, label: string, releaseLabel?: string): void =>
   useEffect(addRelease => {
@@ -39,7 +38,7 @@ describe('Blueprint basic functionality', () => {
     await new Promise(resolve => setTimeout(resolve, 10));
 
     const result = logs.expect(['value: 42']);
-    assert.strictEqual(result.passed, true, result.message);
+    expect(result.passed, result.message).toBe(true);
 
     await app.vanish();
   });
@@ -68,12 +67,12 @@ describe('Blueprint basic functionality', () => {
       // 初期値
       await new Promise(resolve => setTimeout(resolve, 10));
       let result = logs.expect(['value: 0']);
-      assert.strictEqual(result.passed, true, result.message);
+      expect(result.passed, result.message).toBe(true);
 
       // 最初の更新
       await new Promise(resolve => setTimeout(resolve, 20));
       result = logs.expect(['value: 0', 'value: 5', 'released: 0']);
-      assert.strictEqual(result.passed, true, result.message);
+      expect(result.passed, result.message).toBe(true);
 
       // 2回目の更新
       await new Promise(resolve => setTimeout(resolve, 20));
@@ -84,7 +83,7 @@ describe('Blueprint basic functionality', () => {
         'value: 10',
         'released: 5',
       ]);
-      assert.strictEqual(result.passed, true, result.message);
+      expect(result.passed, result.message).toBe(true);
 
       await app.vanish();
     });
@@ -111,7 +110,7 @@ describe('Blueprint basic functionality', () => {
       await new Promise(resolve => setTimeout(resolve, 60));
 
       const result = logs.expect(['value: 1', 'value: 2', 'value: 3']);
-      assert.strictEqual(result.passed, true, result.message);
+      expect(result.passed, result.message).toBe(true);
 
       await app.vanish();
     });
@@ -137,7 +136,7 @@ describe('Blueprint basic functionality', () => {
       await new Promise(resolve => setTimeout(resolve, 40));
 
       const result = logs.expect(['count: 0', 'count: 1', 'count: 2']);
-      assert.strictEqual(result.passed, true, result.message);
+      expect(result.passed, result.message).toBe(true);
 
       await app.vanish();
     });
@@ -180,7 +179,7 @@ describe('Blueprint basic functionality', () => {
         'release1: 1',
         'release2: 1',
       ]);
-      assert.strictEqual(result.passed, true, result.message);
+      expect(result.passed, result.message).toBe(true);
 
       await app.vanish();
     });
@@ -241,7 +240,7 @@ describe('Blueprint basic functionality', () => {
         'released: 105',
         'created: 110',
       ]);
-      assert.strictEqual(result.passed, true, result.message);
+      expect(result.passed, result.message).toBe(true);
 
       await app.vanish();
     });
@@ -287,7 +286,7 @@ describe('Blueprint basic functionality', () => {
         'value2: 100',
         'value2: 200',
       ]);
-      assert.strictEqual(result.passed, true, result.message);
+      expect(result.passed, result.message).toBe(true);
 
       await app.vanish();
     });
@@ -323,7 +322,7 @@ describe('Blueprint basic functionality', () => {
 
       await new Promise(resolve => setTimeout(resolve, 100));
       const result = logs.expect(['count: 0', 'count: 1', 'count: 2']);
-      assert.strictEqual(result.passed, true, result.message);
+      expect(result.passed, result.message).toBe(true);
 
       await app.vanish();
     });
@@ -346,7 +345,7 @@ describe('Blueprint basic functionality', () => {
       await app.vanish();
 
       const result = logs.expect(['created']);
-      assert.strictEqual(result.passed, true, result.message);
+      expect(result.passed, result.message).toBe(true);
     });
   });
 
@@ -396,13 +395,14 @@ describe('Blueprint basic functionality', () => {
         'group-: even',
         'group-: odd',
       ]);
-      assert.strictEqual(result.passed, true, result.message);
+      expect(result.passed, result.message).toBe(true);
 
       await app.vanish();
     });
   });
 
-  describe('useArray works correctly', async () => {
+  describe('useArray works correctly', () => {
+    it('should create and remove array items by key, and update values', async () => {
     const logs = new LogCapture();
 
     const blueprint = (): void => {
@@ -486,8 +486,9 @@ describe('Blueprint basic functionality', () => {
       'value: b: 100',
       'order: b,c',
     ]);
-    assert.strictEqual(result.passed, true, result.message);
+    expect(result.passed, result.message).toBe(true);
 
     await app.vanish();
+    });
   });
 });

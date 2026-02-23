@@ -79,7 +79,7 @@ const merged = field1.append(field2);
 `Matter<T>` represents an object with a lifecycle (materialize/vanish). Blueprints are compiled into Matters via Fields.
 
 ```typescript
-const matter = new Effect<string>((addFinalizeFn) => {
+const matter = new Effect<string>(addFinalizeFn => {
   addFinalizeFn(() => console.log('cleanup'));
   return 'hello';
 });

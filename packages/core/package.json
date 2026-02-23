@@ -1,14 +1,22 @@
 {
   "name": "@quon/core",
   "version": "0.5.1",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "npm run clean && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
-    "test": "node --test --import tsx tests/**/*.test.ts",
-    "test:watch": "node --test --watch --import tsx tests/**/*.test.ts",
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "tsc --noEmit",
     "benchmark": "for file in benchmarks/*.bench.ts; do tsx \"$file\"; done"
   },
@@ -24,7 +32,7 @@
   "license": "MIT",
   "description": "A lightweight reactive programming library built around Field/Matter architecture with Blueprint DSL",
   "files": [
-    "dist/**/*",
+    "dist",
     "README.md",
     "package.json"
   ],
@@ -41,8 +49,9 @@
     "@types/node": "^24.3.3",
     "benchmark": "^2.1.4",
     "immutable": "^5.1.4",
-    "tsc-alias": "^1.8.16",
     "tsx": "^4.20.5",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vite": "^7.2.2",
+    "vitest": "^2.0.0"
   }
 }

@@ -1,26 +1,35 @@
-import { Field } from "@quon/core";
-import { Element, Component, ElementNode, SortedElementStore } from "./types";
-import { isField } from "./utils";
+import { Field } from '@quon/core';
+import { Element, Component, ElementNode, SortedElement } from './types';
+import { isField } from './utils';
 
 /**
- * JSX factory function
- * This is called by TypeScript when JSX is transformed
+ * JSX factory function (automatic runtime)
+ * Called as jsx(tag, props, key) by the automatic JSX transform.
+ * Children are passed inside props.children, NOT as rest args.
  */
 export function jsx(
   tag: string | Component,
-  props: Record<string, unknown> | null,
-  ...children: unknown[]
+  props: Record<string, unknown> | null
 ): Element {
   const actualProps = props ?? {};
-  const actualChildren = flattenChildren(children);
+  const rawChildren = actualProps.children;
+  const actualChildren =
+    rawChildren == null
+      ? []
+      : Array.isArray(rawChildren)
+        ? flattenChildren(rawChildren)
+        : flattenChildren([rawChildren]);
 
   // If tag is a function (component), call it and return the Field<Element>
-  if (typeof tag === "function") {
+  if (typeof tag === 'function') {
     return tag({ ...actualProps, children: actualChildren });
   }
 
+  // Remove children from props before creating the ElementNode
+  const { children: _, ...restProps } = actualProps;
+
   // If tag is a string, create an ElementNode
-  return new ElementNode(tag, actualProps, actualChildren);
+  return new ElementNode(tag, restProps, actualChildren);
 }
 
 /**
@@ -46,14 +55,24 @@ export function Fragment(props: { children?: Element[] }): Element {
 }
 
 export function Sort({
-  keys,
+  by,
   children,
 }: {
-  keys: Field<unknown[]> | unknown[];
+  by:
+    | Field<unknown[]>
+    | unknown[]
+    | ((x: unknown, y: unknown) => Field<boolean> | boolean);
   children: Field<Element>;
-}) {
-  return new SortedElementStore(
-    isField(keys) ? keys : Field.pure(keys),
+}): Element {
+  return new SortedElement(
+    isField(by)
+      ? by
+      : by instanceof Function
+        ? (x, y) => {
+            const result = by(x, y);
+            return isField(result) ? result : Field.pure(result);
+          }
+        : Field.pure(by),
     children
   );
 }

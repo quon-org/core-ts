@@ -1,7 +1,7 @@
-import { BiLinkMap } from '@/bilink-map';
-import { Field } from '@/field';
-import { Effect, Matter, Presence } from '@/matter';
-import { MaybePromise } from '@/util';
+import { BiLinkMap } from '../bilink-map';
+import { Field } from '../field';
+import { Effect, Matter, Presence } from '../matter';
+import { MaybePromise } from '../util';
 
 export class Portal<V> extends Field<V> implements Presence<Portal<V>> {
   private biLinks = new BiLinkMap<number, (val: V) => Matter<void>>();

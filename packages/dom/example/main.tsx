@@ -1,5 +1,5 @@
-import { useAtom, useEffect, useTimeout, use, useCast } from '@quon/core';
-import { component, mount, jsx } from '../src/index';
+import { useAtom, useEnsemble } from '@quon/core';
+import { component, mount } from '../src/index';
 
 // Counter component
 const Counter = component(() => {
@@ -45,12 +45,51 @@ const InputSync = component(() => {
   );
 });
 
+// Input sync example
+const TodoList = component(() => {
+  const todos = useEnsemble<{ id: number; text: string }>();
+  const newTodoText = useAtom<string>('');
+
+  const addTodo = () => {
+    if (newTodoText.peek().trim() === '') return;
+    todos.add({ id: Date.now(), text: newTodoText.peek() });
+    newTodoText.set('');
+  };
+
+  const removeTodo = (id: number) => {
+    todos.removeIf(todo => todo.id === id);
+  };
+
+  return (
+    <div className="counter">
+      <h2>Todo List Example</h2>
+      <input
+        type="text"
+        value={newTodoText}
+        onInput={(e: Event) =>
+          newTodoText.set((e.target as HTMLInputElement).value)
+        }
+      />
+      <button onClick={addTodo}>Add Todo</button>
+      <ul>
+        {todos.map(todo => (
+          <li key={todo.id}>
+            {todo.text}{' '}
+            <button onClick={() => removeTodo(todo.id)}>Remove</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+});
+
 // Main App
 const App = component(() => {
   return (
     <div>
       <Counter />
       <InputSync />
+      <TodoList />
     </div>
   );
 });

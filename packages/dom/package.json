@@ -17,12 +17,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "dev:example": "vite example",
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "dev:example": "vite --config vite.config.ts example",
     "lint": "tsc --noEmit",
-    "test": "vitest",
-    "test:run": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "dom",
@@ -46,7 +45,6 @@
   "devDependencies": {
     "@types/node": "^24.3.3",
     "jsdom": "^25.0.0",
-    "tsup": "^8.0.0",
     "typescript": "^5.9.2",
     "vite": "^7.2.2",
     "vitest": "^2.0.0"

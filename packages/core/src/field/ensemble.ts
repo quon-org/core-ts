@@ -1,7 +1,7 @@
-import { BiLinkMap } from '@/bilink-map';
-import { Field } from '@/field';
-import { Effect, Matter, Presence } from '@/matter';
-import { MaybePromise } from '@/util';
+import { BiLinkMap } from '../bilink-map';
+import { Field } from '../field';
+import { Effect, Matter, Presence } from '../matter';
+import { MaybePromise } from '../util';
 
 export class Ensemble<V> extends Field<V> implements Presence<Ensemble<V>> {
   private biLinks = new BiLinkMap<V, (val: V) => Matter<void>>();
@@ -31,6 +31,17 @@ export class Ensemble<V> extends Field<V> implements Presence<Ensemble<V>> {
 
   async remove(val: V): Promise<void> {
     await this.biLinks.unlinkAllA(val);
+  }
+
+  async removeIf(
+    predicate: (val: V) => boolean | Promise<boolean>
+  ): Promise<void> {
+    const items = this.items();
+    for (const item of items) {
+      if (await predicate(item)) {
+        await this.remove(item);
+      }
+    }
   }
 
   items(): readonly V[] {

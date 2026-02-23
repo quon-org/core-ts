@@ -1,4 +1,4 @@
-import { Matter } from '@/matter';
+import { Matter } from './matter';
 
 /**
  * Field represents a reactive source that couples listeners to emitted values via Matter.

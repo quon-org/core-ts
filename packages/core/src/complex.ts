@@ -1,14 +1,15 @@
 import {
   use,
+  useAtom,
   useCast,
   useConcatenated,
   useConnection,
   useEffect,
   useEnsemble,
   usePortal,
-} from '@/blueprint';
-import { Field } from '@/field';
-import { MaybePromise } from '@/util';
+} from './blueprint';
+import { Field } from './field';
+import { MaybePromise } from './util';
 import { Ensemble } from './field/ensemble';
 
 export function useGroupBy<V, K>(
@@ -101,4 +102,19 @@ export function useArray<K, V>(
 export function useMemoize<T>(sourceField: Field<T>): Field<T> {
   const grouped = useGroupBy(sourceField, v => v).map(({ key }) => key);
   return grouped;
+}
+
+export function useLatest<T>(sourceField: Field<T>, unit: T): Field<T> {
+  const memoized = useMemoize(sourceField);
+  const values = useAtom<T[]>([]);
+  useCast(() => {
+    const source = use(memoized);
+    useEffect(addFinalizeFn => {
+      values.modify(prev => [...prev, source]);
+      addFinalizeFn(() => {
+        values.modify(prev => prev.filter(v => v !== source));
+      });
+    });
+  });
+  return values.map(arr => arr[arr.length - 1] ?? unit);
 }

@@ -4,7 +4,7 @@ import {
   ElementNode,
   Props,
   RefCallback,
-  SortedElementStore,
+  SortedElement,
 } from './types';
 import { isArray, flattenChildren, isFieldElement, isField } from './utils';
 
@@ -50,7 +50,7 @@ function useRenderInternal(
   if (isFieldElement(element)) {
     // Create an anchor comment node to mark the position
     const anchor = useEffect(() => {
-      return document.createComment('field-anchor');
+      return document.createComment('field-anchor-parent');
     });
 
     useEffect(addFinalizeFn => {
@@ -61,8 +61,18 @@ function useRenderInternal(
     });
 
     useCast(() => {
+      // Add child anchor
+      const childAnchor = useEffect(() =>
+        document.createComment('field-anchor-child')
+      );
+      useEffect(addFinalizeFn => {
+        insertNode(parent, childAnchor, anchor);
+        addFinalizeFn(() => {
+          childAnchor.remove();
+        });
+      });
       const el = use(element);
-      useRenderBeforeNode(el, anchor);
+      useRenderBeforeNode(el, childAnchor);
     });
     return;
   }
@@ -92,7 +102,7 @@ function useRenderInternal(
     return;
   }
 
-  if (element instanceof SortedElementStore) {
+  if (element instanceof SortedElement) {
     // TODO: implement sorted element rendering
     return;
   }
@@ -206,6 +216,7 @@ function setProp(element: HTMLElement, key: string, value: unknown): void {
   // Try to set as property first
   if (key in element) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (element as any)[key] = value;
       return;
     } catch {

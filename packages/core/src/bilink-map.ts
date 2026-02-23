@@ -1,5 +1,5 @@
-import * as Rs from '@/matter';
-import { MaybePromise } from '@/util';
+import * as Rs from './matter';
+import { MaybePromise } from './util';
 
 export class BiLinkMap<A, B> {
   private aToB = new Map<A, Map<B, () => MaybePromise<void>>>();
