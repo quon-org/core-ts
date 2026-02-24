@@ -83,4 +83,12 @@ export abstract class Field<V> {
       }
     })();
   }
+
+  public static empty<V>(): Field<V> {
+    return new (class extends Field<V> {
+      couple(): Matter<void> {
+        return Matter.pure(undefined);
+      }
+    })();
+  }
 }

@@ -59,7 +59,7 @@ const TodoList = component(() => {
     newTodoText.set('');
   };
 
-  const removeTodo = (id: number) => {
+  const removeTodo = (id: number): void => {
     todos.removeIf(todo => todo.id === id);
     todoOrder.modify(prev => prev.filter(key => key !== id));
   };

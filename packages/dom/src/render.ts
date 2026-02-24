@@ -1,4 +1,4 @@
-import { Field, use, useAtom, useCast, useEffect } from '@quon/core';
+import { use, useAtom, useCast, useEffect } from '@quon/core';
 import {
   Element,
   ElementNode,
@@ -37,6 +37,7 @@ function useRenderBeforeNode(element: Element, beforeNode: Node): void {
 
 /**
  * Helper to insert a node at the correct position
+ * If beforeNode is null, it appends to the end of the parent
  */
 function insertNode(parent: Node, node: Node, beforeNode: Node | null): void {
   if (beforeNode) {
