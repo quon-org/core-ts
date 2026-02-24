@@ -1,5 +1,5 @@
 import { useAtom, useEnsemble } from '@quon/core';
-import { component, mount } from '../src/index';
+import { component, mount, Sort } from '../src/index';
 
 // Counter component
 const Counter = component(() => {
@@ -49,15 +49,19 @@ const InputSync = component(() => {
 const TodoList = component(() => {
   const todos = useEnsemble<{ id: number; text: string }>();
   const newTodoText = useAtom<string>('');
+  const todoOrder = useAtom<unknown[]>([]);
 
-  const addTodo = () => {
+  const addTodo = (): void => {
     if (newTodoText.peek().trim() === '') return;
-    todos.add({ id: Date.now(), text: newTodoText.peek() });
+    const todo = { id: Date.now(), text: newTodoText.peek() };
+    todos.add(todo);
+    todoOrder.modify(prev => [todo.id, ...prev]);
     newTodoText.set('');
   };
 
   const removeTodo = (id: number) => {
     todos.removeIf(todo => todo.id === id);
+    todoOrder.modify(prev => prev.filter(key => key !== id));
   };
 
   return (
@@ -72,12 +76,14 @@ const TodoList = component(() => {
       />
       <button onClick={addTodo}>Add Todo</button>
       <ul>
-        {todos.map(todo => (
-          <li key={todo.id}>
-            {todo.text}{' '}
-            <button onClick={() => removeTodo(todo.id)}>Remove</button>
-          </li>
-        ))}
+        <Sort by={todoOrder}>
+          {todos.map(todo => (
+            <li key={todo.id}>
+              {todo.text}{' '}
+              <button onClick={() => removeTodo(todo.id)}>Remove</button>
+            </li>
+          ))}
+        </Sort>
       </ul>
     </div>
   );

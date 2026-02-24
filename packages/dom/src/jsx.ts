@@ -9,9 +9,13 @@ import { isField } from './utils';
  */
 export function jsx(
   tag: string | Component,
-  props: Record<string, unknown> | null
+  props: Record<string, unknown> | null,
+  key?: string | number | null
 ): Element {
-  const actualProps = props ?? {};
+  const actualProps =
+    key === undefined || key === null
+      ? (props ?? {})
+      : { ...(props ?? {}), key };
   const rawChildren = actualProps.children;
   const actualChildren =
     rawChildren == null
@@ -58,23 +62,20 @@ export function Sort({
   by,
   children,
 }: {
-  by:
-    | Field<unknown[]>
-    | unknown[]
-    | ((x: unknown, y: unknown) => Field<boolean> | boolean);
-  children: Field<Element>;
+  by: Field<unknown[]> | unknown[];
+  children: Element | Element[];
 }): Element {
-  return new SortedElement(
-    isField(by)
-      ? by
-      : by instanceof Function
-        ? (x, y) => {
-            const result = by(x, y);
-            return isField(result) ? result : Field.pure(result);
-          }
-        : Field.pure(by),
-    children
-  );
+  const sortByField = isField(by) ? by : Field.pure(by);
+
+  const elementsField = isField(children)
+    ? children
+    : Array.isArray(children)
+      ? children.length === 1 && isField(children[0])
+        ? children[0]
+        : Field.pure(children)
+      : Field.pure(children);
+
+  return new SortedElement(sortByField, elementsField);
 }
 
 /**

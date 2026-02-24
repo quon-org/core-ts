@@ -1,4 +1,4 @@
-import { use, useCast, useEffect } from '@quon/core';
+import { Field, use, useAtom, useCast, useEffect } from '@quon/core';
 import {
   Element,
   ElementNode,
@@ -7,6 +7,19 @@ import {
   SortedElement,
 } from './types';
 import { isArray, flattenChildren, isFieldElement, isField } from './utils';
+
+type SortedRenderedItem = {
+  id: number;
+  sortKey: unknown;
+  start: Comment;
+  end: Comment;
+};
+
+type SortedRenderState = {
+  items: SortedRenderedItem[];
+  nextId: number;
+  boundaryEnd: Comment;
+};
 
 /**
  * Render an Element to a parent DOM node (Blueprint function)
@@ -103,7 +116,79 @@ function useRenderInternal(
   }
 
   if (element instanceof SortedElement) {
-    // TODO: implement sorted element rendering
+    const revision = useAtom(0);
+
+    const state = useEffect((): SortedRenderState => {
+      return {
+        items: [],
+        nextId: 0,
+        boundaryEnd: document.createComment('sorted-boundary-end'),
+      };
+    });
+
+    useEffect(addFinalizeFn => {
+      insertNode(parent, state.boundaryEnd, beforeNode);
+
+      addFinalizeFn(() => {
+        state.boundaryEnd.remove();
+      });
+    });
+
+    useCast(() => {
+      const itemValue = use(element.elementsField);
+      const itemSortKey = resolveSortKey(itemValue);
+      const itemStart = useEffect(() =>
+        document.createComment('sorted-item-start')
+      );
+      const itemEnd = useEffect(() =>
+        document.createComment('sorted-item-end')
+      );
+      const itemId = useEffect(() => {
+        const id = state.nextId;
+        state.nextId += 1;
+        return id;
+      });
+
+      useEffect(addFinalizeFn => {
+        insertNode(parent, itemStart, state.boundaryEnd);
+        insertNode(parent, itemEnd, state.boundaryEnd);
+
+        const item: SortedRenderedItem = {
+          id: itemId,
+          sortKey: itemSortKey,
+          start: itemStart,
+          end: itemEnd,
+        };
+        state.items.push(item);
+        revision.modify(val => val + 1);
+
+        addFinalizeFn(() => {
+          const index = state.items.findIndex(
+            existing => existing.id === itemId
+          );
+          if (index >= 0) {
+            state.items.splice(index, 1);
+            revision.modify(val => val + 1);
+          }
+
+          itemStart.remove();
+          itemEnd.remove();
+        });
+      });
+
+      useRenderBeforeNode(itemValue as Element, itemEnd);
+    });
+
+    const sortByField = element.sortBy;
+    useCast(() => {
+      use(revision);
+      const keys = use(sortByField);
+      useEffect(() => {
+        const ordered = orderItemsByKeys(state.items, keys);
+        applySortedDomOrder(parent, ordered, state.boundaryEnd);
+      });
+    });
+
     return;
   }
 
@@ -233,5 +318,82 @@ function setProp(element: HTMLElement, key: string, value: unknown): void {
     }
   } else {
     element.setAttribute(key, String(value));
+  }
+}
+
+function orderItemsByKeys(
+  items: readonly SortedRenderedItem[],
+  keys: readonly unknown[]
+): SortedRenderedItem[] {
+  const rank = new Map<unknown, number>();
+
+  for (let i = 0; i < keys.length; i += 1) {
+    if (!rank.has(keys[i])) {
+      rank.set(keys[i], i);
+    }
+  }
+
+  return [...items].sort((left, right) => {
+    const leftRank = rank.get(left.sortKey);
+    const rightRank = rank.get(right.sortKey);
+
+    if (leftRank === undefined && rightRank === undefined) {
+      return left.id - right.id;
+    }
+
+    if (leftRank === undefined) {
+      return 1;
+    }
+
+    if (rightRank === undefined) {
+      return -1;
+    }
+
+    if (leftRank !== rightRank) {
+      return leftRank - rightRank;
+    }
+
+    return left.id - right.id;
+  });
+}
+
+function resolveSortKey(value: unknown): unknown {
+  if (value instanceof ElementNode) {
+    return value.props.key ?? value;
+  }
+
+  return value;
+}
+
+function applySortedDomOrder(
+  parent: Node,
+  orderedItems: readonly SortedRenderedItem[],
+  boundaryEnd: Node
+): void {
+  for (let i = 0; i < orderedItems.length; i += 1) {
+    const item = orderedItems[i];
+    if (item) {
+      moveRangeBefore(parent, item.start, item.end, boundaryEnd);
+    }
+  }
+}
+
+function moveRangeBefore(
+  parent: Node,
+  start: Node,
+  end: Node,
+  beforeNode: Node
+): void {
+  let current: Node | null = start;
+
+  while (current) {
+    const next: Node | null = current.nextSibling;
+    parent.insertBefore(current, beforeNode);
+
+    if (current === end) {
+      break;
+    }
+
+    current = next;
   }
 }

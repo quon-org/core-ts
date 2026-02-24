@@ -29,13 +29,10 @@ export class ElementNode {
 }
 
 export class SortedElement {
-  sortBy: Field<unknown[]> | ((x: unknown, y: unknown) => Field<boolean>);
+  sortBy: Field<unknown[]>;
   elementsField: Field<Element>;
 
-  constructor(
-    sortBy: Field<unknown[]> | ((x: unknown, y: unknown) => Field<boolean>),
-    elementsField: Field<Element>
-  ) {
+  constructor(sortBy: Field<unknown[]>, elementsField: Field<Element>) {
     this.sortBy = sortBy;
     this.elementsField = elementsField;
   }
