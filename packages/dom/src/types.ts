@@ -60,7 +60,8 @@ export type RefCallback = (element: HTMLElement) => void;
 /**
  * Component function type - returns an Element
  */
-export type Component<P = Record<string, unknown>> = (props: P) => Element;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Component<P = any> = (props: P) => Element;
 
 /**
  * JSX intrinsic elements - maps HTML tag names to their props

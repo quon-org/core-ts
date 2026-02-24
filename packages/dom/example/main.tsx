@@ -103,6 +103,6 @@ const App = component(() => {
 // Mount to DOM
 const root = document.getElementById('root');
 if (root) {
-  const app = mount(App(), root);
+  const app = mount(App({}), root);
   app.asMatter().materialize();
 }

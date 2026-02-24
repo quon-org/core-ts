@@ -1,5 +1,5 @@
 import { toField } from '@quon/core';
-import { Element } from './types';
+import { Component, Element } from './types';
 
 /**
  * Create a component from a blueprint function
@@ -14,12 +14,10 @@ import { Element } from './types';
  * // Use in JSX:
  * <Counter />
  */
-export function component<Props extends Record<string, unknown> | undefined>(
-  blueprint: (...props: PropsArgs<Props>) => Element
-): (...props: PropsArgs<Props>) => Element {
-  return (...props) => {
-    return toField(() => blueprint(...props));
+export function component<Props extends Record<string, unknown>>(
+  blueprint: (props: Props) => Element
+): Component<Props> {
+  return props => {
+    return toField(() => blueprint(props));
   };
 }
-
-type PropsArgs<P> = P extends undefined ? [] : [P];
