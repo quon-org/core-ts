@@ -1,0 +1,57 @@
+{
+  "name": "@quon/core",
+  "version": "0.5.1",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "reactive",
+    "reactive-streams",
+    "state-management",
+    "blueprint",
+    "async",
+    "typescript"
+  ],
+  "author": "yukikurage",
+  "license": "MIT",
+  "description": "A lightweight reactive programming library built around Field/Matter architecture with Blueprint DSL",
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quon-org/quon-ts.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/quon-org/quon-ts/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/quon-org/quon-ts/issues"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.3",
+    "typescript": "^5.9.2",
+    "vite": "^7.2.2",
+    "vitest": "^2.0.0"
+  }
+}

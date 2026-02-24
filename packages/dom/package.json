@@ -1,0 +1,68 @@
+{
+  "name": "@quon/dom",
+  "version": "0.1.0",
+  "description": "Reactive DOM library built on @quon/core",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./jsx-runtime": {
+      "types": "./dist/jsx-runtime.d.ts",
+      "import": "./dist/jsx-runtime.mjs",
+      "require": "./dist/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./dist/jsx-dev-runtime.d.ts",
+      "import": "./dist/jsx-dev-runtime.mjs",
+      "require": "./dist/jsx-dev-runtime.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "dev:example": "vite --config vite.config.ts example",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "dom",
+    "reactive",
+    "jsx",
+    "typescript"
+  ],
+  "author": "yukikurage",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quon-org/quon-ts.git",
+    "directory": "packages/dom"
+  },
+  "homepage": "https://github.com/quon-org/quon-ts/tree/main/packages/dom#readme",
+  "bugs": {
+    "url": "https://github.com/quon-org/quon-ts/issues"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@quon/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.3",
+    "jsdom": "^25.0.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.2.2",
+    "vitest": "^2.0.0"
+  }
+}

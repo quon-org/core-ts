@@ -12,173 +12,175 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Lint Fix**: `pnpm run lint:fix` - Fixes auto-fixable ESLint issues
 - **Format**: `pnpm run format` - Formats code with Prettier
 - **Format Check**: `pnpm run format:check` - Checks code formatting
+- **Benchmark**: `pnpm run benchmark` - Runs benchmark tests
 
 ## Architecture
 
-This is a reactive programming library built around **Realm**, **Blueprint**, and **Store** - providing a declarative API for managing reactive state and side effects with automatic cleanup.
+This is a reactive programming library built around **Field**, **Matter**, and **Blueprint** - providing a declarative API for managing reactive state and side effects with automatic cleanup.
 
 ### Core Concepts
 
-- **Realm**: Represents a space where resources are created and released
-- **Blueprint**: A synchronous-style DSL for composing Realms using flatMap chains
-- **Store**: Manages multiple values from an Realm with automatic lifecycle management
-- **Resource**: Interface for resources that need cleanup, released in proper order
-- **Context**: Type-safe dependency injection system for Blueprints
+- **Matter<T>**: Represents an object with a lifecycle (materialize/vanish). Returns a `Presence<T>` containing a result and a `vanish` cleanup function.
+- **Field<V>**: Represents a reactive source of values. Couples listeners to emitted values via Matter.
+- **Blueprint**: A synchronous-style DSL for composing Fields and Matters.
+- **Atom<T>**: Managed single-value state container (similar to "cell" or "signal").
+- **Portal<T>**: Dynamic multi-value state container with indexed entries.
+- **Ensemble<T>**: Dynamic set-based state container with values managed by identity.
+- **Effect<T>**: A Matter subclass for side effects with cleanup via `addFinalizeFn`.
 
 ### Key Files
 
-- `src/realm.ts`: Core Realm implementation
-- `src/blueprint.ts`: Blueprint DSL implementation
-- `src/store.ts`: Store class for managing Realm values with lifecycle
-- `src/resource.ts`: Resource interface and composition utilities
-- `src/bilink-map.ts`: Bidirectional map for managing Observer-Value relationships
-- `src/task-queue.ts`: Task queue for managing async operations
-- `src/index.ts`: Main entry point that exports all public APIs + convenience re-exports
-- `benchmarks/history-comparison.ts`: Performance comparison (Queue vs Array)
+- `src/matter.ts`: Core Matter implementation, Presence interface, and Effect class
+- `src/field.ts`: Field abstract class (reactive source)
+- `src/blueprint.ts`: Blueprint DSL implementation with `useX` functions
+- `src/field/atom.ts`: Atom - single-value reactive state
+- `src/field/portal.ts`: Portal - multi-value reactive state with indexed entries
+- `src/field/ensemble.ts`: Ensemble - set-based reactive state
+- `src/bilink-map.ts`: Bidirectional map for managing Listener-Value relationships
+- `src/complex.ts`: Higher-level utilities (useGroupBy, useArray, useMemoize)
+- `src/index.ts`: Main entry point with convenience re-exports
+- `src/linked-list.ts`: Persistent linked list implementation
+- `src/util.ts`: Utility types (MaybePromise)
 
 ### Reactive System
 
-The library uses an Realm-based execution model where:
+The library uses a Matter-based execution model where:
 
-1. **Realms** represent streams of values that can be transformed and combined
-2. **Blueprint** provides a synchronous-style DSL where `useX` functions chain Realms via flatMap
-3. **Store** manages multiple concurrent values from an Realm, each with its own lifecycle
-4. **Resources** handle cleanup in reverse order of creation
-5. **Context API** provides type-safe dependency injection using symbols
+1. **Matter** represents objects with lifecycle management (materialize → vanish)
+2. **Field** represents reactive sources that couple listeners to values
+3. **Blueprint** provides a synchronous-style DSL where `useX` functions compose Fields and Matters
+4. **Atom** holds a single value that can be updated (triggers re-execution on change)
+5. **Portal** manages multiple indexed values dynamically (values can be connected/disconnected)
+6. **Ensemble** manages a set of values by identity (values can be added/removed)
+7. **Effect** handles side effects and cleanup in reverse order of creation
 
 ### API Conventions
 
-#### Realm
+#### Matter
 
-- **`Realm<T>`**: Base class for reactive value streams
-  - `instantiate(observer: (value: T) => Resource): Resource` - Subscribe to value changes
-  - `map<U>(f: (value: T) => U): Realm<U>` - Transform values
-  - `flatMap<U>(f: (value: T) => Realm<U>): Realm<U>` - Transform and flatten
-  - `filter(predicate: (value: T) => boolean): Realm<T>` - Filter values
-  - `merge<U>(other: Realm<U>): Realm<T | U>` - Merge two streams
-  - `Realm.pure<T>(value: T)` - Create Realm with single value
-  - `Realm.never<T>()` - Create Realm that emits nothing
+- **`Matter<T>`**: Abstract class for lifecycle objects
+  - `materialize(): Presence<T>` - Materialize the matter, returning result and vanish function
+  - `map<U>(fn: (result: T) => U): Matter<U>` - Transform result
+  - `flatMap<U>(fn: (result: T) => Matter<U>): Matter<U>` - Chain matters
+  - `parZip<U>(other: Matter<U>): Matter<[T, U]>` - Parallel zip
+  - `Matter.pure<T>(value: T): Matter<T>` - Create pure matter
+  - `Matter.parSequence<T>(matters: Matter<T>[]): Matter<T[]>` - Run in parallel
+  - `Matter.ofClass<T>(Cls: PresenceClass<T>): Matter<T>` - Create from Presence class
+
+- **`Effect<T>`**: Matter subclass for side effects
+  - Constructor: `new Effect<T>((addFinalizeFn, abortSignal) => T | Promise<T>)`
+  - Use `addFinalizeFn()` to register cleanup functions (called in reverse order)
+  - `abortSignal` indicates when the effect is being cancelled
+
+- **`Presence<T>`**: Interface representing a materialized matter
+  - `result: MaybePromise<T>` - The result value
+  - `vanish(): MaybePromise<void>` - Cleanup function
+
+#### Field
+
+- **`Field<V>`**: Abstract class for reactive sources
+  - `couple(listener: (val: V) => Matter<void>): Matter<void>` - Couple a listener
+  - `asMatter(): Matter<void>` - Convert to Matter (ignoring emitted values)
+  - `map<U>(fn: (val: V) => U): Field<U>` - Transform values
+  - `flatMap<U>(fn: (val: V) => Field<U>): Field<U>` - Chain fields
+  - `filter(predicate: (val: V) => boolean): Field<V>` - Filter values
+  - `append(other: Field<V>): Field<V>` - Merge two fields
+  - `Field.concat<T>(fields: Field<T>[]): Field<T>` - Merge multiple fields
+  - `Field.pure<V>(val: V): Field<V>` - Create a field with a single value
+  - `Field.ofMatter<V>(matter: Matter<V>): Field<V>` - Create from a Matter
 
 #### Blueprint
 
-Blueprints are synchronous-style functions that compose Realms. All `useX` functions must be called at the top level of a Blueprint (not inside conditionals, loops, or callbacks).
+Blueprints are synchronous-style functions that compose Fields and Matters. All `useX` functions must be called at the top level of a Blueprint (not inside conditionals, loops, or callbacks).
 
 **Core Blueprint APIs:**
 
-- **`Blueprint.toRealm<T>(blueprint: () => T, userCtx?: UserContext): Realm<T>`**
-  - Converts a Blueprint function into an Realm
+- **`toField<T>(blueprint: () => T, userCtx?: UserContext): Field<T>`**
+  - Converts a Blueprint function into a Field
 
-- **`Blueprint.use<T>(realm: Realm<T>): T`** (also exported as `use()`)
-  - Uses an Realm within a Blueprint (creates flatMap chain)
-  - Throws `BlueprintChainException` internally for control flow
+- **`use<T>(field: Field<T>): T`**
+  - Uses a Field within a Blueprint (creates async continuation)
+  - Throws an exception internally for control flow (don't catch this!)
 
-- **`Blueprint.useEffect<T>(maker: (addResource, abortSignal) => T | Promise<T>): T`** (also exported as `useEffect()`)
-  - Executes side effects with proper cleanup
-  - Use `addResource()` to register cleanup functions
-  - `abortSignal` indicates when the effect is being cancelled
+- **`useEffect<T>(maker: (addFinalizeFn, abortSignal) => T | Promise<T>): T`**
+  - Executes side effects with automatic cleanup
+  - Use `addFinalizeFn()` to register cleanup functions
+  - `abortSignal` indicates cancellation
   - Should be used for all I/O, timers, console.log, and other side effects
 
-- **`Blueprint.useTimeout(delayMs: number): void`** (also exported as `useTimeout()`)
+- **`useTimeout(delayMs: number): void`**
   - Pauses Blueprint execution for specified milliseconds
 
-- **`Blueprint.useNever(): never`** (also exported as `useNever()`)
-  - Stops Blueprint execution (no values emitted)
+- **`useAppended<T>(leftBlueprint: () => T, rightBlueprint: () => T): T`**
+  - Runs two Blueprints in parallel
 
-- **`Blueprint.useGuard(predicate: () => boolean): void`** (also exported as `useGuard()`)
-  - Conditionally continues execution (like filter)
+- **`useConcatenated<T>(blueprints: (() => T)[]): T`**
+  - Runs multiple Blueprints sequentially
 
-- **`Blueprint.useIterable<T>(iterable: Iterable<T>): T`** (also exported as `useIterable()`)
-  - Iterates over values, emitting each one
+**State Management Blueprint APIs:**
 
-**Store-related Blueprint APIs:**
+- **`useAtom<T>(initialValue: T): Atom<T>`**
+  - Creates a managed single-value state
+  - The Atom can be updated with `set()` or `modify()`
+  - Current value accessible via `peek()`
 
-- **`Blueprint.toStore<T>(blueprint: () => T): Store<T>`** (also exported as `toStore()`)
-  - Create a Store from a Blueprint outside of a Blueprint context
-  - This is the main entry point for creating root Stores
+- **`usePortal<T>(): Portal<T>`**
+  - Creates a dynamic multi-value state with indexed entries
+  - Values can be connected/disconnected dynamically
 
-- **`Blueprint.useStore<T>(blueprint: () => T): Store<T>`** (also exported as `useStore()`)
-  - Create a Store from a Blueprint within a Blueprint context
-  - The created Store will be a child of the current Blueprint
+- **`useEnsemble<T>(): Ensemble<T>`**
+  - Creates a dynamic set-based state
+  - Values can be added/removed by identity
 
-- **`Blueprint.useCell<T>(initialValue: T): [Store<T>, (newValue: T) => Promise<void>]`** (also exported as `useCell()`)
-  - Create a single-value cell within a Blueprint
-  - The setter replaces the current value (releases old, creates new)
+- **`useConnection<T>(portal: Portal<T>, val: T): void`**
+  - Connects a value to a Portal
+  - The value remains connected as long as the Blueprint scope is active
 
-- **`Blueprint.usePortal<T>(): [Store<T>, (newValue: T) => void]`** (also exported as `usePortal()`)
-  - Create a multi-value portal within a Blueprint
-  - The setter is a Blueprint function that adds/removes values
-  - Multiple values can coexist in the Store
+- **`useCast<T>(blueprint: () => T): Field<T>`**
+  - Casts a Blueprint into a Field by running it inside a Portal
 
 **Context APIs:**
 
-- **`Blueprint.useUserContext(): UserContext`**
-  - Returns current context values
-
-- **`Blueprint.createContext<T>(): Context<T>`**
+- **`createContext<T>(): Context<T>`**
   - Creates a context for dependency injection
   - Returns object with `key`, `useProvider(value)`, and `useConsumer()`
 
-#### Store
+- **`useUserContext(): UserContext`**
+  - Returns current context values
 
-**Store Class:**
+#### Atom<T>
 
-- **`new Store<T>(realm: Realm<T>)`**
-  - Creates a Store that manages multiple values from an Realm
-  - Each value gets its own lifecycle (Resource)
+- `set(val: V): void` - Replace current value
+- `modify(fn: (val: V) => V): void` - Update based on current value
+- `peek(): V` - Get current value without subscription
 
-- **`store.peek(): Iterable<T>`**
-  - Returns current values without creating dependencies
+#### Portal<T>
 
-- **`store.release(): Promise<void>`**
-  - Releases all resources (idempotent)
+- `connect(val: V): Matter<void>` - Add a value (returns Matter for lifecycle)
+- `items(): readonly V[]` - Get current values
+- `static cast<T>(field: Field<T>): Matter<Field<T>>` - Cast a field through a Portal
 
-**Low-level Store Factory Functions (Realm-based):**
+#### Ensemble<T>
 
-These functions are Blueprint-independent and return Realms. They are the foundation for Blueprint convenience wrappers.
-
-- **`Store.newStoreRealm<T>(rlm: Realm<T>): Realm<Store<T>>`**
-  - Wrap an Realm in a Store as an effect Realm
-  - The Store is created synchronously and returned
-
-- **`Store.newCellRealm<T>(initialValue: T): Realm<[Store<T>, (newValue: T) => Promise<void>]>`**
-  - Create an Realm that provides a single-value cell
-  - The setter replaces the current value (releases old, creates new)
-  - Skips duplicates and queued values
-
-- **`Store.newPortalRealm<T>(): Realm<[Store<T>, (newValue: T) => Realm<void>]>`**
-  - Create an Realm that provides a multi-value portal
-  - The setter returns an Realm<void> that represents adding/removing a value
-  - Multiple values can coexist in the Store
-
-#### Resource
-
-- **`Resource.parallel(set: Iterable<Resource>): Resource`**
-  - Releases all in parallel (uses Promise.allSettled)
-
-- **`Resource.sequential(set: Iterable<Resource>): Resource`**
-  - Releases in order (awaits each)
-
-- **`Resource.noop`**
-  - No-op resource
+- `add(val: V): void` - Add a value
+- `remove(val: V): Promise<void>` - Remove a value
+- `items(): readonly V[]` - Get current values
 
 ### Important Patterns
 
 1. **All `useX` functions must be called at Blueprint top level**: Don't call inside if/loops/callbacks
 2. **Side effects must use `useEffect`**: All I/O, console.log, timers, etc.
-3. **Cleanup via resources**: Use `addResource()` to register cleanup (cleared in reverse order)
-4. **Never catch exceptions across `use()` boundaries**: BlueprintChainException is used for control flow internally
-5. **Store manages multiple values**: Each value from Realm gets independent lifecycle
+3. **Cleanup via `addFinalizeFn`**: Register cleanup functions (executed in reverse order)
+4. **Never catch exceptions across `use()` boundaries**: Blueprint uses exceptions for control flow internally
+5. **Matter lifecycle**: Always call `vanish()` to prevent memory leaks
 6. **Context is Blueprint-scoped**: Use `useProvider()` in parent, `useConsumer()` in child
-7. **Separation of concerns**: Store provides low-level Realm-based APIs; Blueprint provides convenience wrappers
-8. **No circular dependencies**: Store → Realm (no Blueprint dependency), Blueprint → Store (one-way dependency)
 
 ### Design Constraints
 
 1. **Synchronous Blueprint execution**: Blueprints run synchronously until a `use()` call
-2. **Exception-based control flow**: `BlueprintChainException` is thrown internally to implement continuations
+2. **Exception-based control flow**: Internal exceptions implement async continuations
 3. **Global context during Blueprint execution**: `BLUEPRINT_GLOBAL_CONTEXT` is set/restored synchronously
-4. **Array-based history**: Blueprint uses array copying for execution history (benchmarked 1.13x faster than persistent Queue/LinkedList)
-5. **Realm-first design**: Store factory functions return Realms, Blueprint provides wrappers
+4. **Array-based history**: Blueprint uses array copying for execution history (fast for small histories)
 
 ## Code Style
 
@@ -196,15 +198,15 @@ These functions are Blueprint-independent and return Realms. They are the founda
 - Test files are in `tests/` directory with `.test.ts` suffix
 - Use `LogCapture` utility from `tests/test-utils.ts` to capture and assert log outputs
 - Tests should be fast and isolated
-- Each test should clean up after itself by calling `store.release()`
+- Each test should clean up after itself by calling `vanish()` on materialized Matters
 
 ## Common Pitfalls
 
 1. **Don't catch exceptions around `use()` calls**: This will break Blueprint control flow
 2. **Don't call `useX` functions conditionally**: Must be at top level
-3. **Don't forget to call `release()`**: Memory leaks will occur
+3. **Don't forget to call `vanish()`**: Memory leaks will occur
 4. **Don't use side effects outside `useEffect`**: Breaks determinism
-5. **Don't share Store across unrelated Blueprints**: Each should have its own lifecycle
+5. **Don't share reactive state across unrelated Blueprints**: Each should have its own lifecycle
 
 ## API Design Notes
 
@@ -213,40 +215,19 @@ These functions are Blueprint-independent and return Realms. They are the founda
 Following React's design pattern, frequently used functions are re-exported directly from the main module:
 
 ```typescript
-// These work without the Blueprint. prefix:
+// These work without a namespace:
 import {
   use,
   useEffect,
   useTimeout,
-  useCell,
+  useAtom,
   usePortal,
-  useStore,
-  toStore,
+  useEnsemble,
+  useConnection,
+  useCast,
+  useAppended,
+  useConcatenated,
+  toField,
+  createContext,
 } from '@quon/core';
-
-// Less common functions still use the namespace:
-import { Blueprint } from '@quon/core';
-Blueprint.createContext();
-Blueprint.useUserContext();
 ```
-
-### Two-Layer API Design
-
-**Store Module (Low-level, Realm-based):**
-
-- `Store.newStoreRealm()` - Returns `Realm<Store<T>>`
-- `Store.newCellRealm()` - Returns `Realm<[Store<T>, Setter]>`
-- `Store.newPortalRealm()` - Returns `Realm<[Store<T>, (T) => Realm<void>]>`
-
-**Blueprint Module (High-level, Convenience):**
-
-- `Blueprint.toStore()` / `toStore()` - Uses `toRealm()` + `new Store()`
-- `Blueprint.useStore()` / `useStore()` - Uses `newStoreRealm()` + `use()`
-- `Blueprint.useCell()` / `useCell()` - Uses `newCellRealm()` + `use()`
-- `Blueprint.usePortal()` / `usePortal()` - Uses `newPortalRealm()` + `use()` + `map()`
-
-This separation ensures:
-
-1. Store has no Blueprint dependency (no circular deps)
-2. Realm-based APIs are composable and testable
-3. Blueprint provides ergonomic wrappers for common use cases
