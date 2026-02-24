@@ -1,4 +1,4 @@
-import { use, useAtom, useCast, useEffect } from '@quon/core';
+import { Field, toField, use, useCast, useEffect, useLatest } from '@quon/core';
 import {
   Element,
   ElementNode,
@@ -8,43 +8,81 @@ import {
 } from './types';
 import { isArray, flattenChildren, isFieldElement, isField } from './utils';
 
-type SortedRenderedItem = {
-  id: number;
-  sortKey: unknown;
-  start: Comment;
-  end: Comment;
-};
-
-type SortedRenderState = {
-  items: SortedRenderedItem[];
-  nextId: number;
-  boundaryEnd: Comment;
-};
-
 /**
  * Render an Element to a parent DOM node (Blueprint function)
  */
 export function useRender(element: Element, parent: Node): void {
-  useRenderInternal(element, parent, null);
-}
-
-/**
- * Render an Element before a specific node (Blueprint function)
- */
-function useRenderBeforeNode(element: Element, beforeNode: Node): void {
-  useRenderInternal(element, beforeNode.parentNode!, beforeNode);
+  useRenderInternal(element, parent, Field.empty());
 }
 
 /**
  * Helper to insert a node at the correct position
  * If beforeNode is null, it appends to the end of the parent
  */
-function insertNode(parent: Node, node: Node, beforeNode: Node | null): void {
+function insertNode(node: Node, parent: Node, beforeNode: Node | null): void {
   if (beforeNode) {
     parent.insertBefore(node, beforeNode);
   } else {
     parent.appendChild(node);
   }
+}
+
+function useInsertNode(
+  nodeField: Field<ChildNode>, // 描画対象の Node
+  parent: Node,
+  beforeNodeField: Field<Node> // 最も最後に渡された Node を優先, Node が無い場合は親の最後に追加
+): void {
+  const latestBeforeNodeField = useLatest(beforeNodeField, null);
+
+  useCast(() => {
+    // それぞれの node に対して
+    const node = use(nodeField);
+    // beforeNode が更新されるたび、そこに移動する
+    // nodeField 内の Node については順番は保証できない (保証したいなら Sort を使うべき)
+    const latestBeforeNode = use(latestBeforeNodeField);
+    useEffect(() => {
+      insertNode(node, parent, latestBeforeNode); // 移動するだけ (戻したりはしない)
+    });
+  });
+}
+
+/**
+ * 与えられた配列の要素ごとに Anchor Node を beforeNode の前に作成して返す
+ * 個数の更新、beforeNode の更新に反応して **すべての Anchor Node** を作り直す
+ * 順番を保証する場合は blueprint の繰り返しではなくその内部でやる必要がある。
+ */
+function useAnchorNodes<K>(
+  countField: Field<K[]>,
+  parent: Node,
+  beforeNodeField: Field<Node>
+): Field<
+  {
+    key: K;
+    anchor: Comment;
+  }[]
+> {
+  const latestBeforeNodeField = useLatest(beforeNodeField, null);
+  return useCast(() => {
+    const keys = use(countField);
+    const latestBeforeNode = use(latestBeforeNodeField);
+    const anchors = useEffect(() => {
+      return keys.map(key => {
+        const anchor = document.createComment(`anchor-${String(key)}`);
+        insertNode(anchor, parent, latestBeforeNode);
+        return { key, anchor };
+      });
+    });
+
+    useEffect(addFinalizeFn => {
+      addFinalizeFn(() => {
+        for (const { anchor } of anchors) {
+          anchor.remove();
+        }
+      });
+    });
+
+    return anchors;
+  });
 }
 
 /**
@@ -53,7 +91,7 @@ function insertNode(parent: Node, node: Node, beforeNode: Node | null): void {
 function useRenderInternal(
   element: Element,
   parent: Node,
-  beforeNode: Node | null
+  beforeNode: Field<Node>
 ): void {
   // Handle null/undefined
   if (element == null) {
@@ -62,31 +100,9 @@ function useRenderInternal(
 
   // Handle Field<Element> (reactive component or reactive value)
   if (isFieldElement(element)) {
-    // Create an anchor comment node to mark the position
-    const anchor = useEffect(() => {
-      return document.createComment('field-anchor-parent');
-    });
-
-    useEffect(addFinalizeFn => {
-      insertNode(parent, anchor, beforeNode);
-      addFinalizeFn(() => {
-        anchor.remove();
-      });
-    });
-
     useCast(() => {
-      // Add child anchor
-      const childAnchor = useEffect(() =>
-        document.createComment('field-anchor-child')
-      );
-      useEffect(addFinalizeFn => {
-        insertNode(parent, childAnchor, anchor);
-        addFinalizeFn(() => {
-          childAnchor.remove();
-        });
-      });
-      const el = use(element);
-      useRenderBeforeNode(el, childAnchor);
+      const fieldValue = use(element);
+      useRenderInternal(fieldValue, parent, beforeNode);
     });
     return;
   }
@@ -94,9 +110,19 @@ function useRenderInternal(
   // Handle arrays
   if (isArray(element)) {
     const flattened = flattenChildren(element);
-    for (const child of flattened) {
-      useRenderInternal(child, parent, beforeNode);
-    }
+    // それぞれの Element について Anchor Node を生成
+    const anchorsField = useAnchorNodes(
+      Field.pure(flattened),
+      parent,
+      beforeNode
+    );
+    // それぞれの Element を対応する Anchor Node の前に描画
+    useCast(() => {
+      const anchors = use(anchorsField);
+      for (const { key: element, anchor } of anchors) {
+        useRenderInternal(element, parent, Field.pure(anchor));
+      }
+    });
     return;
   }
 
@@ -107,87 +133,39 @@ function useRenderInternal(
     });
 
     useEffect(addFinalizeFn => {
-      insertNode(parent, textNode, beforeNode);
-
       addFinalizeFn(async () => {
         textNode.remove();
       });
     });
+
+    useInsertNode(Field.pure(textNode), parent, beforeNode);
+
     return;
   }
 
   if (element instanceof SortedElement) {
-    const revision = useAtom(0);
-
-    const state = useEffect((): SortedRenderState => {
-      return {
-        items: [],
-        nextId: 0,
-        boundaryEnd: document.createComment('sorted-boundary-end'),
-      };
-    });
-
-    useEffect(addFinalizeFn => {
-      insertNode(parent, state.boundaryEnd, beforeNode);
-
-      addFinalizeFn(() => {
-        state.boundaryEnd.remove();
-      });
-    });
-
-    useCast(() => {
-      const itemValue = use(element.elementsField);
-      const itemSortKey = resolveSortKey(itemValue);
-      const itemStart = useEffect(() =>
-        document.createComment('sorted-item-start')
-      );
-      const itemEnd = useEffect(() =>
-        document.createComment('sorted-item-end')
-      );
-      const itemId = useEffect(() => {
-        const id = state.nextId;
-        state.nextId += 1;
-        return id;
-      });
-
-      useEffect(addFinalizeFn => {
-        insertNode(parent, itemStart, state.boundaryEnd);
-        insertNode(parent, itemEnd, state.boundaryEnd);
-
-        const item: SortedRenderedItem = {
-          id: itemId,
-          sortKey: itemSortKey,
-          start: itemStart,
-          end: itemEnd,
-        };
-        state.items.push(item);
-        revision.modify(val => val + 1);
-
-        addFinalizeFn(() => {
-          const index = state.items.findIndex(
-            existing => existing.id === itemId
-          );
-          if (index >= 0) {
-            state.items.splice(index, 1);
-            revision.modify(val => val + 1);
-          }
-
-          itemStart.remove();
-          itemEnd.remove();
-        });
-      });
-
-      useRenderBeforeNode(itemValue as Element, itemEnd);
-    });
-
     const sortByField = element.sortBy;
-    useCast(() => {
-      use(revision);
-      const keys = use(sortByField);
-      useEffect(() => {
-        const ordered = orderItemsByKeys(state.items, keys);
-        applySortedDomOrder(parent, ordered, state.boundaryEnd);
+    const elementsField = element.elementsField;
+
+    // sortByField に基づいて anchor を設置
+    const anchorsField = useAnchorNodes(sortByField, parent, beforeNode);
+
+    // key に対して beforeNode を取得する関数
+    const getBeforeNodeField = (key: unknown): Field<Node> =>
+      toField(() => {
+        const anchors = use(anchorsField);
+        const anchor = anchors.find(({ key: k }) => k === key)?.anchor;
+        return use(anchor ? Field.pure(anchor) : Field.empty());
       });
+
+    // それぞれの Element を描画
+    useCast(() => {
+      const element = use(elementsField);
+      useRenderInternal(
+        element,
+        parent,
+        getBeforeNodeField(resolveSortKey(element))
+      );
     });
 
     return;
@@ -202,22 +180,21 @@ function useRenderInternal(
     const domElement = useEffect(() => {
       return document.createElement(tag);
     });
-
-    // Apply props
-    useApplyProps(domElement, props);
-
     // Append to parent
     useEffect(addFinalizeFn => {
-      insertNode(parent, domElement, beforeNode);
-
       addFinalizeFn(async () => {
         domElement.remove();
       });
     });
 
+    // Apply props
+    useApplyProps(domElement, props);
+
+    useInsertNode(Field.pure(domElement), parent, beforeNode);
+
     // Render children
     for (const child of children) {
-      useRenderInternal(child, domElement, null);
+      useRenderInternal(child, domElement, Field.empty());
     }
     return;
   }
@@ -322,79 +299,10 @@ function setProp(element: HTMLElement, key: string, value: unknown): void {
   }
 }
 
-function orderItemsByKeys(
-  items: readonly SortedRenderedItem[],
-  keys: readonly unknown[]
-): SortedRenderedItem[] {
-  const rank = new Map<unknown, number>();
-
-  for (let i = 0; i < keys.length; i += 1) {
-    if (!rank.has(keys[i])) {
-      rank.set(keys[i], i);
-    }
-  }
-
-  return [...items].sort((left, right) => {
-    const leftRank = rank.get(left.sortKey);
-    const rightRank = rank.get(right.sortKey);
-
-    if (leftRank === undefined && rightRank === undefined) {
-      return left.id - right.id;
-    }
-
-    if (leftRank === undefined) {
-      return 1;
-    }
-
-    if (rightRank === undefined) {
-      return -1;
-    }
-
-    if (leftRank !== rightRank) {
-      return leftRank - rightRank;
-    }
-
-    return left.id - right.id;
-  });
-}
-
 function resolveSortKey(value: unknown): unknown {
   if (value instanceof ElementNode) {
     return value.props.key ?? value;
   }
 
   return value;
-}
-
-function applySortedDomOrder(
-  parent: Node,
-  orderedItems: readonly SortedRenderedItem[],
-  boundaryEnd: Node
-): void {
-  for (let i = 0; i < orderedItems.length; i += 1) {
-    const item = orderedItems[i];
-    if (item) {
-      moveRangeBefore(parent, item.start, item.end, boundaryEnd);
-    }
-  }
-}
-
-function moveRangeBefore(
-  parent: Node,
-  start: Node,
-  end: Node,
-  beforeNode: Node
-): void {
-  let current: Node | null = start;
-
-  while (current) {
-    const next: Node | null = current.nextSibling;
-    parent.insertBefore(current, beforeNode);
-
-    if (current === end) {
-      break;
-    }
-
-    current = next;
-  }
 }

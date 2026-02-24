@@ -9,6 +9,7 @@ export { Portal } from './field/portal';
 export { Ensemble } from './field/ensemble';
 export type { MaybePromise } from './util';
 export type { Context } from './blueprint';
+export { useMemoize, useLatest, useArray, useGroupBy } from './complex';
 
 /**
  * Uses a Field within a Blueprint.
