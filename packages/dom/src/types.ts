@@ -70,15 +70,40 @@ export type QuonIntrinsicElements = {
     ref?: RefCallback;
     key?: string | number;
     children?: Element | Element[];
-    // Event handlers (functions only)
-    onClick?: EventListener;
-    onInput?: EventListener;
-    onChange?: EventListener;
-    onSubmit?: EventListener;
-    onKeyDown?: EventListener;
-    onKeyUp?: EventListener;
-    onFocus?: EventListener;
-    onBlur?: EventListener;
+    // Mouse events
+    onClick?: (e: MouseEvent) => void;
+    onDblClick?: (e: MouseEvent) => void;
+    onMouseDown?: (e: MouseEvent) => void;
+    onMouseUp?: (e: MouseEvent) => void;
+    onMouseEnter?: (e: MouseEvent) => void;
+    onMouseLeave?: (e: MouseEvent) => void;
+    onContextMenu?: (e: MouseEvent) => void;
+    // Keyboard events
+    onKeyDown?: (e: KeyboardEvent) => void;
+    onKeyUp?: (e: KeyboardEvent) => void;
+    // Focus events
+    onFocus?: (e: FocusEvent) => void;
+    onBlur?: (e: FocusEvent) => void;
+    // Input events
+    onInput?: (e: Event) => void;
+    onChange?: (e: Event) => void;
+    // Form events
+    onSubmit?: (e: SubmitEvent) => void;
+    // Drag events
+    onDragStart?: (e: DragEvent) => void;
+    onDragEnd?: (e: DragEvent) => void;
+    onDragOver?: (e: DragEvent) => void;
+    onDrop?: (e: DragEvent) => void;
+    // Pointer events
+    onPointerDown?: (e: PointerEvent) => void;
+    onPointerUp?: (e: PointerEvent) => void;
+    onPointerMove?: (e: PointerEvent) => void;
+    // Touch events
+    onTouchStart?: (e: TouchEvent) => void;
+    onTouchEnd?: (e: TouchEvent) => void;
+    onTouchMove?: (e: TouchEvent) => void;
+    // Scroll events
+    onScroll?: (e: Event) => void;
     // Props can be reactive Field values
     value?: MaybeReactive<string>;
     checked?: MaybeReactive<boolean>;

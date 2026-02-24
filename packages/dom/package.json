@@ -11,10 +11,21 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./jsx-runtime": {
+      "types": "./dist/jsx-runtime.d.ts",
+      "import": "./dist/jsx-runtime.mjs",
+      "require": "./dist/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./dist/jsx-dev-runtime.d.ts",
+      "import": "./dist/jsx-dev-runtime.mjs",
+      "require": "./dist/jsx-dev-runtime.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "vite build && tsc -p tsconfig.build.json",
@@ -36,6 +47,11 @@
     "url": "git+https://github.com/quon-org/quon-ts.git",
     "directory": "packages/dom"
   },
+  "homepage": "https://github.com/quon-org/quon-ts/tree/main/packages/dom#readme",
+  "bugs": {
+    "url": "https://github.com/quon-org/quon-ts/issues"
+  },
+  "sideEffects": false,
   "publishConfig": {
     "access": "public"
   },

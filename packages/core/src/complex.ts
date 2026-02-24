@@ -12,6 +12,13 @@ import { Field } from './field';
 import { MaybePromise } from './util';
 import { Ensemble } from './field/ensemble';
 
+/**
+ * Groups values from a source Field by a key function.
+ * Returns a Field of `{ key, group }` pairs where each group is a Field of values sharing the same key.
+ * Groups are created and destroyed dynamically as values arrive and leave.
+ * @param sourceField The source Field to group.
+ * @param keyFn A function that extracts a grouping key from each value.
+ */
 export function useGroupBy<V, K>(
   sourceField: Field<V>,
   keyFn: (val: V) => K
@@ -79,6 +86,12 @@ export function useGroupBy<V, K>(
   return outerEnsemble;
 }
 
+/**
+ * Decomposes a Field of arrays into individually-tracked keyed elements.
+ * Returns a Field of `{ key, value: Field<V> }` pairs and a Field of key orderings.
+ * @param sourceField A Field emitting arrays of values.
+ * @param keyFn A function that extracts a unique key from each value.
+ */
 export function useArray<K, V>(
   sourceField: Field<Array<V>>,
   keyFn: (v: V) => K
@@ -99,11 +112,21 @@ export function useArray<K, V>(
   return [grouped, keys];
 }
 
+/**
+ * Deduplicates values from a source Field by identity.
+ * Only emits when a new unique value appears.
+ */
 export function useMemoize<T>(sourceField: Field<T>): Field<T> {
   const grouped = useGroupBy(sourceField, v => v).map(({ key }) => key);
   return grouped;
 }
 
+/**
+ * Tracks the latest value from a source Field.
+ * Returns a Field that always emits the most recently seen value.
+ * @param sourceField The source Field to track.
+ * @param unit The default value when no values have been emitted yet.
+ */
 export function useLatest<T>(sourceField: Field<T>, unit: T): Field<T> {
   const memoized = useMemoize(sourceField);
   const values = useAtom<T[]>([]);

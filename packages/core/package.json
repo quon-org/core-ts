@@ -17,8 +17,7 @@
     "build": "vite build && tsc -p tsconfig.build.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit",
-    "benchmark": "for file in benchmarks/*.bench.ts; do tsx \"$file\"; done"
+    "lint": "tsc --noEmit"
   },
   "keywords": [
     "reactive",
@@ -41,15 +40,16 @@
     "url": "git+https://github.com/quon-org/quon-ts.git",
     "directory": "packages/core"
   },
+  "homepage": "https://github.com/quon-org/quon-ts/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/quon-org/quon-ts/issues"
+  },
+  "sideEffects": false,
   "publishConfig": {
     "access": "public"
   },
   "devDependencies": {
-    "@types/benchmark": "^2.1.5",
     "@types/node": "^24.3.3",
-    "benchmark": "^2.1.4",
-    "immutable": "^5.1.4",
-    "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "vite": "^7.2.2",
     "vitest": "^2.0.0"

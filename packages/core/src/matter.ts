@@ -1,7 +1,12 @@
 import { MaybePromise } from './util';
 
+/**
+ * Represents a materialized Matter with a result and a cleanup function.
+ */
 export interface Presence<T> {
+  /** The result value, possibly asynchronous. */
   result: MaybePromise<T>;
+  /** Cleanup function to release resources. */
   vanish(this: void): MaybePromise<void>;
 }
 
@@ -13,8 +18,10 @@ export type PresenceClass<T, Args extends unknown[]> = new (
  * Matter represents an object that has a lifecycle (materialize/vanish).
  */
 export abstract class Matter<T> {
+  /** Materializes this Matter, producing a Presence with a result and cleanup function. */
   public abstract materialize(): Presence<T>;
 
+  /** Transforms the result of this Matter using the given function. */
   public map<U>(fn: (result: T) => U): Matter<U> {
     const materialize = this.materialize.bind(this);
     return new (class extends Matter<U> {
@@ -28,6 +35,7 @@ export abstract class Matter<T> {
     })();
   }
 
+  /** Chains this Matter with a function that returns another Matter. */
   public flatMap<U>(fn: (result: T) => Matter<U>): Matter<U> {
     const materialize = this.materialize.bind(this);
     return new (class extends Matter<U> {
@@ -68,6 +76,7 @@ export abstract class Matter<T> {
     })();
   }
 
+  /** Creates a Matter that immediately resolves to the given value with no cleanup. */
   public static pure<T>(value: T): Matter<T> {
     return new (class extends Matter<T> {
       materialize(): Presence<T> {
@@ -79,6 +88,7 @@ export abstract class Matter<T> {
     })();
   }
 
+  /** Materializes all given Matters in parallel and collects their results. */
   public static parSequence<T extends unknown[]>(matters: {
     [K in keyof T]: Matter<T[K]>;
   }): Matter<T> {
@@ -104,6 +114,7 @@ export abstract class Matter<T> {
     })();
   }
 
+  /** Materializes this Matter and another in parallel, returning both results as a tuple. */
   public parZip<U>(other: Matter<U>): Matter<[T, U]> {
     const materialize = this.materialize.bind(this);
     return new (class extends Matter<[T, U]> {
@@ -127,6 +138,7 @@ export abstract class Matter<T> {
     })();
   }
 
+  /** Creates a Matter from a Presence class constructor. */
   public static ofClass<T, Args extends unknown[]>(
     Cls: PresenceClass<T, Args>,
     ...args: Args
@@ -148,6 +160,10 @@ export abstract class Matter<T> {
 // Core Matter Constructors
 // ============================================================================
 
+/**
+ * A Matter subclass for side effects with lifecycle management.
+ * Register cleanup functions via `addFinalizeFn` (called in reverse order on vanish).
+ */
 export class Effect<T> extends Matter<T> {
   materialize(): Presence<T> {
     const finalizeFns: Array<() => MaybePromise<void>> = [];

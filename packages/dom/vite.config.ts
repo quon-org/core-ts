@@ -7,9 +7,14 @@ const __dir = fileURLToPath(new URL('.', import.meta.url));
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dir, 'src/index.ts'),
+      entry: {
+        index: resolve(__dir, 'src/index.ts'),
+        'jsx-runtime': resolve(__dir, 'src/jsx-runtime.ts'),
+        'jsx-dev-runtime': resolve(__dir, 'src/jsx-dev-runtime.ts'),
+      },
       formats: ['es', 'cjs'],
-      fileName: (format) => `index.${format === 'es' ? 'mjs' : 'js'}`,
+      fileName: (format, entryName) =>
+        `${entryName}.${format === 'es' ? 'mjs' : 'js'}`,
     },
     outDir: 'dist',
     rollupOptions: {

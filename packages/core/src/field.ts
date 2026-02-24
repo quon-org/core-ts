@@ -4,12 +4,15 @@ import { Matter } from './matter';
  * Field represents a reactive source that couples listeners to emitted values via Matter.
  */
 export abstract class Field<V> {
+  /** Couples a listener to this Field. The listener is called for each emitted value. */
   public abstract couple(listener: (val: V) => Matter<void>): Matter<void>;
 
+  /** Converts this Field to a Matter, ignoring emitted values. */
   public asMatter(): Matter<void> {
     return this.couple(() => Matter.pure(undefined));
   }
 
+  /** Transforms emitted values using the given function. */
   public map<U>(fn: (val: V) => U): Field<U> {
     const couple = this.couple.bind(this);
     return new (class extends Field<U> {
@@ -22,6 +25,7 @@ export abstract class Field<V> {
     })();
   }
 
+  /** Chains this Field with a function that returns another Field. */
   public flatMap<U>(fn: (val: V) => Field<U>): Field<U> {
     const couple = this.couple.bind(this);
     return new (class extends Field<U> {
@@ -34,6 +38,7 @@ export abstract class Field<V> {
     })();
   }
 
+  /** Filters emitted values, only passing through those that satisfy the predicate. */
   public filter<S extends V>(predicate: (val: V) => val is S): Field<S>;
   public filter(predicate: (val: V) => boolean): Field<V> {
     const couple = this.couple.bind(this);
@@ -49,6 +54,7 @@ export abstract class Field<V> {
     })();
   }
 
+  /** Merges multiple Fields into one, emitting values from all of them in parallel. */
   public static concat<T>(fields: Field<T>[]): Field<T> {
     return new (class extends Field<T> {
       couple(listener: (val: T) => Matter<void>): Matter<void> {
@@ -58,6 +64,7 @@ export abstract class Field<V> {
     })();
   }
 
+  /** Merges this Field with another, emitting values from both in parallel. */
   public append(other: Field<V>): Field<V> {
     const couple = this.couple.bind(this);
     return new (class extends Field<V> {
@@ -68,6 +75,7 @@ export abstract class Field<V> {
     })();
   }
 
+  /** Creates a Field that emits a single value. */
   public static pure<V>(val: V): Field<V> {
     return new (class extends Field<V> {
       couple(listener: (val: V) => Matter<void>): Matter<void> {
@@ -76,6 +84,7 @@ export abstract class Field<V> {
     })();
   }
 
+  /** Creates a Field from a Matter, emitting the Matter's result as a single value. */
   public static ofMatter<V>(r: Matter<V>): Field<V> {
     return new (class extends Field<V> {
       couple(listener: (val: V) => Matter<void>): Matter<void> {
@@ -84,6 +93,7 @@ export abstract class Field<V> {
     })();
   }
 
+  /** Creates a Field that never emits any value. */
   public static empty<V>(): Field<V> {
     return new (class extends Field<V> {
       couple(): Matter<void> {

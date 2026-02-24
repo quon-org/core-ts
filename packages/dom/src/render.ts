@@ -55,33 +55,32 @@ function useAnchorNodes<K>(
   countField: Field<K[]>,
   parent: Node,
   beforeNodeField: Field<Node>
-): Field<
-  {
-    key: K;
-    anchor: Comment;
-  }[]
-> {
+): Field<Map<K, Comment>> {
   const latestBeforeNodeField = useLatest(beforeNodeField, null);
+
   return useCast(() => {
     const keys = use(countField);
     const latestBeforeNode = use(latestBeforeNodeField);
-    const anchors = useEffect(() => {
-      return keys.map(key => {
+
+    const anchorMap = useEffect(() => {
+      const map = new Map<K, Comment>();
+      for (const key of keys) {
         const anchor = document.createComment(`anchor-${String(key)}`);
         insertNode(anchor, parent, latestBeforeNode);
-        return { key, anchor };
-      });
+        map.set(key, anchor);
+      }
+      return map;
     });
 
     useEffect(addFinalizeFn => {
       addFinalizeFn(() => {
-        for (const { anchor } of anchors) {
+        for (const anchor of anchorMap.values()) {
           anchor.remove();
         }
       });
     });
 
-    return anchors;
+    return anchorMap;
   });
 }
 
@@ -119,7 +118,7 @@ function useRenderInternal(
     // それぞれの Element を対応する Anchor Node の前に描画
     useCast(() => {
       const anchors = use(anchorsField);
-      for (const { key: element, anchor } of anchors) {
+      for (const [element, anchor] of anchors.entries()) {
         useRenderInternal(element, parent, Field.pure(anchor));
       }
     });
@@ -154,8 +153,11 @@ function useRenderInternal(
     const getBeforeNodeField = (key: unknown): Field<Node> =>
       toField(() => {
         const anchors = use(anchorsField);
-        const anchor = anchors.find(({ key: k }) => k === key)?.anchor;
-        return use(anchor ? Field.pure(anchor) : Field.empty());
+        const anchor = anchors.get(key);
+        if (anchor) {
+          return anchor;
+        }
+        return use(Field.empty());
       });
 
     // それぞれの Element を描画

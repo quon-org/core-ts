@@ -1,8 +1,8 @@
 import { Atom, Portal } from '@quon/core';
 import { describe, expect, test } from 'vitest';
-import { Sort, jsx } from './jsx';
-import { mount } from './mount';
-import { Element, ElementNode, SortedElement } from './types';
+import { Sort, jsx } from '../src/jsx';
+import { mount } from '../src/mount';
+import { Element, ElementNode, SortedElement } from '../src/types';
 
 function makeTextElement(label: string): ElementNode {
   return new ElementNode('span', { 'data-label': label }, [label]);

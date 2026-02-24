@@ -3,6 +3,10 @@ import { Field } from '../field';
 import { Effect, Matter, Presence } from '../matter';
 import { MaybePromise } from '../util';
 
+/**
+ * A managed single-value reactive state container.
+ * Updates via `set()` or `modify()` trigger re-execution of coupled listeners.
+ */
 export class Atom<V> extends Field<V> implements Presence<Atom<V>> {
   private biLinks = new BiLinkMap<null, (val: V) => Matter<void>>();
   private currentValue: V;
@@ -30,6 +34,7 @@ export class Atom<V> extends Field<V> implements Presence<Atom<V>> {
     });
   }
 
+  /** Updates the current value using a modifier function. No-op if the value is unchanged (by reference). */
   public modify(modifier: (val: V) => V): void {
     const newValue = modifier(this.currentValue);
 
@@ -49,10 +54,12 @@ export class Atom<V> extends Field<V> implements Presence<Atom<V>> {
     });
   }
 
+  /** Replaces the current value. No-op if the value is unchanged (by reference). */
   public set(val: V): void {
     this.modify(() => val);
   }
 
+  /** Returns the current value without creating a subscription. */
   public peek(): V {
     return this.currentValue;
   }

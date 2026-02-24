@@ -77,11 +77,3 @@ export function Sort({
 
   return new SortedElement(sortByField, elementsField);
 }
-
-/**
- * Helper to wrap a Field<Element> as an Element
- * This allows using Field<Element> directly in JSX
- */
-export function wrapField(field: Field<Element>): Element {
-  return field;
-}

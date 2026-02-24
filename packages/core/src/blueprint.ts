@@ -76,7 +76,8 @@ export function useUserContext(): UserContext {
 }
 
 /**
- * Create a context
+ * Creates a context for dependency injection within Blueprints.
+ * Use `useProvider(value)` in a parent Blueprint and `useConsumer()` in a child.
  */
 export function createContext<T>(): Context<T> {
   return {
@@ -130,7 +131,11 @@ II の場合は、useFoo に listener を渡すだけだと、同期的呼び出
 */
 
 /**
- * Convert a Blueprint function into a Field.
+ * Converts a Blueprint function into a Field.
+ * The Field can then be coupled with a listener and materialized.
+ * @param dynamics The Blueprint function.
+ * @param userCtx Optional user context to pass to the Blueprint.
+ * @returns A Field representing the Blueprint.
  */
 export function toField<T>(dynamics: () => T, userCtx?: UserContext): Field<T> {
   const couple = (listener: (val: T) => Matter<void>): Matter<void> => {
@@ -199,11 +204,22 @@ export function toField<T>(dynamics: () => T, userCtx?: UserContext): Field<T> {
   })();
 }
 
+/**
+ * Uses a Field within a Blueprint.
+ * The Field is coupled when the Blueprint executes this line.
+ * If the underlying Matter is asynchronous, the Blueprint execution pauses until it completes.
+ * @param field The Field to use.
+ */
 export function use<T>(field: Field<T>): T {
   const global = getBlueprintGlobalContext();
   return global.use(field);
 }
 
+/**
+ * Runs two Blueprints in parallel and returns the result of either.
+ * @param leftBlueprint The first Blueprint.
+ * @param rightBlueprint The second Blueprint.
+ */
 export function useAppended<T>(
   leftBlueprint: () => T,
   rightBlueprint: () => T
@@ -213,6 +229,10 @@ export function useAppended<T>(
   return use(leftField.append(rightField));
 }
 
+/**
+ * Runs multiple Blueprints sequentially (concatenation) and returns the result of each.
+ * @param blueprints An array of Blueprint functions to run.
+ */
 export function useConcatenated<T>(blueprints: (() => T)[]): T {
   const fields = blueprints.map(bp => toField(bp));
   return use(Field.concat(fields));
@@ -222,6 +242,12 @@ export function useMatter<T>(matter: Matter<T>): T {
   return use(Field.ofMatter(matter));
 }
 
+/**
+ * Executes a side effect with automatic cleanup.
+ * The effect function is called when the Blueprint executes.
+ * The cleanup function (registered via addFinalizeFn) is called when the Blueprint scope ends.
+ * @param maker A function that performs the side effect. It receives `addFinalizeFn` to register cleanup logic and `abortSignal` for cancellation.
+ */
 export function useEffect<T>(
   maker: (
     addFinalizeFn: (finalizeFn: () => MaybePromise<void>) => void,
@@ -235,6 +261,10 @@ export function useEffect<T>(
   );
 }
 
+/**
+ * Pauses execution for a specified duration.
+ * @param delayMs The duration to wait in milliseconds.
+ */
 export function useTimeout(delayMs: number): void {
   return useEffect((addFinalizeFn, abortSignal) => {
     return new Promise<void>(resolve => {
@@ -273,6 +303,12 @@ export function useTimeout(delayMs: number): void {
 // State-related convenience functions
 // ============================================================================
 
+/**
+ * Casts a Blueprint into a Field by running it inside a Portal.
+ * Each value emitted by the Blueprint is tracked as a Portal entry.
+ * @param blueprint A Blueprint function to cast.
+ * @returns A Field emitting the values produced by the Blueprint.
+ */
 export function useCast<T>(blueprint: () => T): Field<T> {
   const userCtx = useUserContext();
   return useMatter(Portal.cast(toField(() => blueprint(), userCtx)));
@@ -294,10 +330,21 @@ export function usePortal<T>(): Portal<T> {
   return useMatter(Matter.ofClass(Portal<T>));
 }
 
+/**
+ * Creates a dynamic set-based state (Ensemble).
+ * The Ensemble allows adding and removing values by identity.
+ * @returns An Ensemble instance.
+ */
 export function useEnsemble<T>(): Ensemble<T> {
   return useMatter(Matter.ofClass(Ensemble<T>));
 }
 
+/**
+ * Connects a value to a Portal.
+ * The value remains connected as long as the current Blueprint scope is active.
+ * @param portal The Portal to connect to.
+ * @param val The value to connect.
+ */
 export function useConnection<T>(portal: Portal<T>, val: T): void {
   useMatter(portal.connect(val));
 }
