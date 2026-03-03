@@ -8,10 +8,10 @@ import { Field, toField } from '@quon/core';
  *
  * @example
  * const app = mount(<App />, document.getElementById("root")!);
- * const { vanish } = app.asMatter().materialize();
+ * const { decay } = app.asOperator().exicite();
  *
  * // Later, to unmount:
- * await vanish();
+ * await decay();
  */
 export function mount(element: Element, parent: Node): Field<void> {
   return toField(() => {

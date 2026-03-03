@@ -4,10 +4,10 @@ A reactive programming library for TypeScript with automatic lifecycle managemen
 
 ## Packages
 
-| Package | Description | Version |
-|---------|-------------|---------|
-| [@quon/core](./packages/core/) | Core reactive primitives (Field, Matter, Blueprint DSL) | 0.5.1 |
-| [@quon/dom](./packages/dom/) | Reactive DOM rendering with JSX support | 0.1.0 |
+| Package                        | Description                                             | Version |
+| ------------------------------ | ------------------------------------------------------- | ------- |
+| [@quon/core](./packages/core/) | Core reactive primitives (Field, Operator, Diagram DSL) | 0.5.1   |
+| [@quon/dom](./packages/dom/)   | Reactive DOM rendering with JSX support                 | 0.1.0   |
 
 ## Quick Start
 
@@ -31,7 +31,7 @@ const Counter = component(() => {
 });
 
 const app = mount(<Counter />, document.getElementById('root')!);
-app.asMatter().materialize();
+app.asOperator().exicite();
 ```
 
 ## Development

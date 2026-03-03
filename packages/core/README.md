@@ -1,15 +1,15 @@
 # @quon/core
 
-A lightweight reactive programming library built around **Field**, **Matter**, and **Atom** - providing a declarative API for managing reactive state and side effects with automatic cleanup.
+A lightweight reactive programming library built around **Field**, **Operator**, and **Atom** - providing a declarative API for managing reactive state and side effects with automatic cleanup.
 
 ## Features
 
-- **Field<T>**: Represents a reactive source of values that couples listeners via Matter.
-- **Matter<T>**: Represents a lifecycle object (materialize/vanish).
-- **Blueprint DSL**: Synchronous-style syntax for composing Fields and Matters.
+- **Field<T>**: Represents a reactive source of values that couples listeners via Operator.
+- **Operator<T>**: Represents a lifecycle object (exicite/decay).
+- **Diagram DSL**: Synchronous-style syntax for composing Fields and Operators.
 - **Atom<T>**: Managed single-value state container.
-- **Portal<T>**: Dynamic multi-value state container.
-- **Ensemble<T>**: Dynamic set-based state container.
+- **Bridge<T>**: Dynamic multi-value state container.
+- **Cluster<T>**: Dynamic set-based state container.
 - **Automatic Cleanup**: Resources are released in proper order automatically.
 
 ## Installation
@@ -25,7 +25,7 @@ import {
   toField,
   useAtom,
   useCast,
-  useEffect,
+  useInteraction,
   useTimeout,
   use,
 } from '@quon/core';
@@ -37,31 +37,31 @@ const counterApp = () => {
   // Cast the atom into a Field and observe changes
   useCast(() => {
     const value = use(count);
-    useEffect(() => {
+    useInteraction(() => {
       console.log('Count:', value);
     });
   });
 
   // Update count after 1 second
   useTimeout(1000);
-  useEffect(() => count.set(1));
+  useInteraction(() => count.set(1));
 
   useTimeout(1000);
-  useEffect(() => count.set(2));
+  useInteraction(() => count.set(2));
 };
 
-// Execute the blueprint
-const app = toField(counterApp).asMatter().materialize();
+// Execute the diagram
+const app = toField(counterApp).asOperator().exicite();
 
 // Later: cleanup
-// await app.vanish();
+// await app.decay();
 ```
 
 ## Core Concepts
 
 ### Field<T>
 
-`Field<T>` represents a reactive source of values. It couples listeners to emitted values through Matter.
+`Field<T>` represents a reactive source of values. It couples listeners to emitted values through Operator.
 
 ```typescript
 // Transform values
@@ -74,38 +74,38 @@ const evens = field.filter(x => x % 2 === 0);
 const merged = field1.append(field2);
 ```
 
-### Matter<T>
+### Operator<T>
 
-`Matter<T>` represents an object with a lifecycle (materialize/vanish). Blueprints are compiled into Matters via Fields.
+`Operator<T>` represents an object with a lifecycle (exicite/decay). Diagrams are compiled into Operators via Fields.
 
 ```typescript
-const matter = new Effect<string>(addFinalizeFn => {
+const operator = new Interaction<string>(addFinalizeFn => {
   addFinalizeFn(() => console.log('cleanup'));
   return 'hello';
 });
-const { result, vanish } = matter.materialize();
+const { result, decay } = operator.exicite();
 
 // ... later
-await vanish();
+await decay();
 ```
 
-### Blueprint
+### Diagram
 
-`Blueprint` is a synchronous-style DSL for composing Fields and Matters.
+`Diagram` is a synchronous-style DSL for composing Fields and Operators.
 
 ```typescript
-import { toField, useAtom, useEffect } from '@quon/core';
+import { toField, useAtom, useInteraction } from '@quon/core';
 
-const myBlueprint = () => {
+const myDiagram = () => {
   const atom = useAtom(0);
 
-  // Side effects must be wrapped in useEffect
-  useEffect(() => {
+  // Side effects must be wrapped in useInteraction
+  useInteraction(() => {
     console.log('Atom created');
   });
 };
 
-const app = toField(myBlueprint).asMatter().materialize();
+const app = toField(myDiagram).asOperator().exicite();
 ```
 
 ### Atom<T>
@@ -116,46 +116,46 @@ const app = toField(myBlueprint).asMatter().materialize();
 const count = useAtom(0);
 
 // Update value
-useEffect(() => count.set(1));
+useInteraction(() => count.set(1));
 
 // Modify based on previous value
-useEffect(() => count.modify(prev => prev + 1));
+useInteraction(() => count.modify(prev => prev + 1));
 ```
 
-### Portal<T>
+### Bridge<T>
 
-`Portal<T>` is a `Field<T>` that allows dynamic connections. It represents a collection of values where items can be added or removed dynamically.
+`Bridge<T>` is a `Field<T>` that allows dynamic connections. It represents a collection of values where items can be added or removed dynamically.
 
 ```typescript
-const portal = usePortal<string>();
+const bridge = useBridge<string>();
 
-// Connect a value to the portal
-useConnection(portal, 'Hello');
+// Connect a value to the bridge
+useConnection(bridge, 'Hello');
 ```
 
-### Ensemble<T>
+### Cluster<T>
 
-`Ensemble<T>` is a `Field<T>` that manages a set of values by identity. Values can be added and removed directly.
+`Cluster<T>` is a `Field<T>` that manages a set of values by identity. Values can be added and removed directly.
 
 ```typescript
-const ensemble = useEnsemble<number>();
+const cluster = useCluster<number>();
 
-useEffect(() => ensemble.add(1));
-useEffect(() => ensemble.add(2));
-useEffect(() => ensemble.remove(1));
+useInteraction(() => cluster.add(1));
+useInteraction(() => cluster.add(2));
+useInteraction(() => cluster.remove(1));
 ```
 
 ## API Reference
 
 ### Top-Level Exports
 
-- **`toField<T>(blueprint: () => T): Field<T>`**
-  - Converts a Blueprint function into a Field.
+- **`toField<T>(diagram: () => T): Field<T>`**
+  - Converts a Diagram function into a Field.
 
 - **`use<T>(field: Field<T>): T`**
-  - Uses a Field within a Blueprint.
+  - Uses a Field within a Diagram.
 
-- **`useEffect<T>(maker: (addFinalizeFn, abortSignal) => T): T`**
+- **`useInteraction<T>(maker: (addFinalizeFn, abortSignal) => T): T`**
   - Executes a side effect with cleanup.
 
 - **`useTimeout(delayMs: number): void`**
@@ -164,23 +164,23 @@ useEffect(() => ensemble.remove(1));
 - **`useAtom<T>(initialValue: T): Atom<T>`**
   - Creates a managed single-value state.
 
-- **`usePortal<T>(): Portal<T>`**
+- **`useBridge<T>(): Bridge<T>`**
   - Creates a dynamic multi-value state.
 
-- **`useEnsemble<T>(): Ensemble<T>`**
+- **`useCluster<T>(): Cluster<T>`**
   - Creates a dynamic set-based state.
 
-- **`useConnection<T>(portal: Portal<T>, val: T): void`**
-  - Connects a value to a Portal.
+- **`useConnection<T>(bridge: Bridge<T>, val: T): void`**
+  - Connects a value to a Bridge.
 
-- **`useCast<T>(blueprint: () => T): Field<T>`**
-  - Casts a Blueprint into a Field by running it inside a Portal.
+- **`useCast<T>(diagram: () => T): Field<T>`**
+  - Casts a Diagram into a Field by running it inside a Bridge.
 
 - **`useAppended<T>(left: () => T, right: () => T): T`**
-  - Runs two Blueprints in parallel.
+  - Runs two Diagrams in parallel.
 
-- **`useConcatenated<T>(blueprints: (() => T)[]): T`**
-  - Runs multiple Blueprints sequentially.
+- **`useConcatenated<T>(diagrams: (() => T)[]): T`**
+  - Runs multiple Diagrams sequentially.
 
 - **`createContext<T>(): Context<T>`**
   - Creates a context for dependency injection.
@@ -188,27 +188,27 @@ useEffect(() => ensemble.remove(1));
 ### Classes
 
 - **`Field<T>`**
-  - `couple(listener: (val: T) => Matter<void>): Matter<void>`
-  - `asMatter(): Matter<void>`
+  - `couple(listener: (val: T) => Operator<void>): Operator<void>`
+  - `asOperator(): Operator<void>`
   - `map<U>(fn: (val: T) => U): Field<U>`
   - `flatMap<U>(fn: (val: T) => Field<U>): Field<U>`
   - `filter(predicate: (val: T) => boolean): Field<T>`
   - `append(other: Field<T>): Field<T>`
   - `static concat<T>(fields: Field<T>[]): Field<T>`
   - `static pure<T>(val: T): Field<T>`
-  - `static ofMatter<T>(matter: Matter<T>): Field<T>`
+  - `static ofOperator<T>(operator: Operator<T>): Field<T>`
 
-- **`Matter<T>`**
-  - `materialize(): Presence<T>`
-  - `map<U>(fn: (result: T) => U): Matter<U>`
-  - `flatMap<U>(fn: (result: T) => Matter<U>): Matter<U>`
-  - `parZip<U>(other: Matter<U>): Matter<[T, U]>`
-  - `static pure<T>(value: T): Matter<T>`
-  - `static parSequence<T>(matters: Matter<T>[]): Matter<T[]>`
-  - `static ofClass<T>(Cls: PresenceClass<T>): Matter<T>`
+- **`Operator<T>`**
+  - `exicite(): Excitation<T>`
+  - `map<U>(fn: (result: T) => U): Operator<U>`
+  - `flatMap<U>(fn: (result: T) => Operator<U>): Operator<U>`
+  - `parZip<U>(other: Operator<U>): Operator<[T, U]>`
+  - `static pure<T>(value: T): Operator<T>`
+  - `static parSequence<T>(operators: Operator<T>[]): Operator<T[]>`
+  - `static ofClass<T>(Cls: ExcitationClass<T>): Operator<T>`
 
-- **`Effect<T>` extends `Matter<T>`**
-  - Constructor: `new Effect<T>((addFinalizeFn, abortSignal) => T | Promise<T>)`
+- **`Interaction<T>` extends `Operator<T>`**
+  - Constructor: `new Interaction<T>((addFinalizeFn, abortSignal) => T | Promise<T>)`
 
 ## License
 

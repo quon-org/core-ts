@@ -7,30 +7,30 @@ import { Component, ElementNode } from '../src/types';
 describe('mount', () => {
   test('renders a text string', () => {
     const parent = document.createElement('div');
-    const app = mount('hello', parent).asMatter().materialize();
+    const app = mount('hello', parent).asOperator().exicite();
     expect(parent.textContent).toBe('hello');
-    app.vanish();
+    app.decay();
   });
 
   test('renders a number', () => {
     const parent = document.createElement('div');
-    const app = mount(42, parent).asMatter().materialize();
+    const app = mount(42, parent).asOperator().exicite();
     expect(parent.textContent).toBe('42');
-    app.vanish();
+    app.decay();
   });
 
   test('renders null without error', () => {
     const parent = document.createElement('div');
-    const app = mount(null, parent).asMatter().materialize();
+    const app = mount(null, parent).asOperator().exicite();
     expect(parent.childNodes.length).toBe(0);
-    app.vanish();
+    app.decay();
   });
 
   test('renders undefined without error', () => {
     const parent = document.createElement('div');
-    const app = mount(undefined, parent).asMatter().materialize();
+    const app = mount(undefined, parent).asOperator().exicite();
     expect(parent.childNodes.length).toBe(0);
-    app.vanish();
+    app.decay();
   });
 });
 
@@ -38,10 +38,10 @@ describe('useRender with ElementNode', () => {
   test('renders a simple element', () => {
     const parent = document.createElement('div');
     const el = new ElementNode('span', {}, ['text']);
-    const app = mount(el, parent).asMatter().materialize();
+    const app = mount(el, parent).asOperator().exicite();
 
     expect(parent.innerHTML).toBe('<span>text</span>');
-    app.vanish();
+    app.decay();
   });
 
   test('renders nested elements', () => {
@@ -49,31 +49,31 @@ describe('useRender with ElementNode', () => {
     const el = new ElementNode('div', { className: 'outer' }, [
       new ElementNode('span', {}, ['inner']),
     ]);
-    const app = mount(el, parent).asMatter().materialize();
+    const app = mount(el, parent).asOperator().exicite();
 
     expect(parent.querySelector('.outer')).not.toBeNull();
     expect(parent.querySelector('.outer span')?.textContent).toBe('inner');
-    app.vanish();
+    app.decay();
   });
 
   test('applies static props', () => {
     const parent = document.createElement('div');
     const el = new ElementNode('input', { type: 'text', value: 'hello' }, []);
-    const app = mount(el, parent).asMatter().materialize();
+    const app = mount(el, parent).asOperator().exicite();
 
     const input = parent.querySelector('input') as HTMLInputElement;
     expect(input.type).toBe('text');
     expect(input.value).toBe('hello');
-    app.vanish();
+    app.decay();
   });
 
-  test('cleans up DOM on vanish', async () => {
+  test('cleans up DOM on decay', async () => {
     const parent = document.createElement('div');
     const el = new ElementNode('span', {}, ['text']);
-    const app = mount(el, parent).asMatter().materialize();
+    const app = mount(el, parent).asOperator().exicite();
 
     expect(parent.childNodes.length).toBeGreaterThan(0);
-    await app.vanish();
+    await app.decay();
     expect(parent.querySelector('span')).toBeNull();
   });
 });
@@ -85,13 +85,13 @@ describe('useRender with arrays', () => {
       new ElementNode('span', {}, ['a']),
       new ElementNode('span', {}, ['b']),
     ];
-    const app = mount(el, parent).asMatter().materialize();
+    const app = mount(el, parent).asOperator().exicite();
 
     const spans = parent.querySelectorAll('span');
     expect(spans.length).toBe(2);
     expect(spans[0]?.textContent).toBe('a');
     expect(spans[1]?.textContent).toBe('b');
-    app.vanish();
+    app.decay();
   });
 });
 
@@ -100,13 +100,13 @@ describe('useRender with Field<Element>', () => {
     const parent = document.createElement('div');
     const atom = new Atom<string>('initial');
 
-    const app = mount(atom, parent).asMatter().materialize();
+    const app = mount(atom, parent).asOperator().exicite();
     expect(parent.textContent).toContain('initial');
 
     atom.set('updated');
     expect(parent.textContent).toContain('updated');
 
-    app.vanish();
+    app.decay();
   });
 });
 
@@ -117,13 +117,13 @@ describe('useRender with event listeners', () => {
     const el = new ElementNode('button', { onClick: () => (clicked = true) }, [
       'click me',
     ]);
-    const app = mount(el, parent).asMatter().materialize();
+    const app = mount(el, parent).asOperator().exicite();
 
     const button = parent.querySelector('button') as HTMLButtonElement;
     button.click();
     expect(clicked).toBe(true);
 
-    app.vanish();
+    app.decay();
   });
 });
 
@@ -132,7 +132,7 @@ describe('useRender with reactive props', () => {
     const parent = document.createElement('div');
     const classAtom = new Atom('initial');
     const el = new ElementNode('div', { className: classAtom }, ['content']);
-    const app = mount(el, parent).asMatter().materialize();
+    const app = mount(el, parent).asOperator().exicite();
 
     const div = parent.querySelector('div') as HTMLDivElement;
     expect(div.className).toBe('initial');
@@ -140,7 +140,7 @@ describe('useRender with reactive props', () => {
     classAtom.set('updated');
     expect(div.className).toBe('updated');
 
-    app.vanish();
+    app.decay();
   });
 });
 
@@ -179,7 +179,7 @@ describe('Fragment', () => {
 });
 
 describe('component helper', () => {
-  test('wraps blueprint into a Field-returning function', async () => {
+  test('wraps diagram into a Field-returning function', async () => {
     const { component } = await import('../src/component');
 
     const MyComp = component(() => {
@@ -188,12 +188,12 @@ describe('component helper', () => {
 
     const parent = document.createElement('div');
     const el = MyComp();
-    const app = mount(el, parent).asMatter().materialize();
+    const app = mount(el, parent).asOperator().exicite();
 
     expect(parent.querySelector('div')?.textContent).toBe(
       'hello from component'
     );
-    app.vanish();
+    app.decay();
   });
 });
 
@@ -206,10 +206,10 @@ describe('ref callback', () => {
       { ref: (el: HTMLElement) => (refElement = el) },
       []
     );
-    const app = mount(el, parent).asMatter().materialize();
+    const app = mount(el, parent).asOperator().exicite();
 
     expect(refElement).not.toBeNull();
     expect(refElement).toBeInstanceOf(HTMLDivElement);
-    app.vanish();
+    app.decay();
   });
 });

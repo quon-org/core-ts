@@ -4,7 +4,7 @@ import { Field } from '@quon/core';
  * Element type - the core type representing DOM elements in the library
  */
 export type Element =
-  | Field<Element> // Component (Blueprint-based) or reactive value
+  | Field<Element> // Component (Diagram-based) or reactive value
   | SortedElement
   | ElementNode // DOM element description
   | string // Text node

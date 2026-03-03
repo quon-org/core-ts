@@ -2,8 +2,8 @@
  * @quon/dom - Reactive DOM library built on @quon/core
  */
 
-// Re-export core Blueprint utilities
-export { toField } from "@quon/core";
+// Re-export core Diagram utilities
+export { toField } from '@quon/core';
 
 // Export types
 export type {
@@ -13,19 +13,19 @@ export type {
   RefCallback,
   Component,
   QuonIntrinsicElements,
-} from "./types";
+} from './types';
 
 // Export JSX factory and Fragment
-export { jsx, Fragment, Sort } from "./jsx";
+export { jsx, Fragment, Sort } from './jsx';
 
 // Export component helper
-export { component } from "./component";
+export { component } from './component';
 
 // Export render function
-export { useRender } from "./render";
+export { useRender } from './render';
 
 // Export mount function
-export { mount } from "./mount";
+export { mount } from './mount';
 
 // Export utilities
-export { isArray, flattenChildren } from "./utils";
+export { isArray, flattenChildren } from './utils';

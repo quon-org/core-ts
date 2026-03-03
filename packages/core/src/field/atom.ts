@@ -1,62 +1,34 @@
-import { BiLinkMap } from '../bilink-map';
-import { Field } from '../field';
-import { Effect, Matter, Presence } from '../matter';
+import { Excitation } from '../operator';
 import { MaybePromise } from '../util';
+import { BaseField } from './base';
 
 /**
  * A managed single-value reactive state container.
  * Updates via `set()` or `modify()` trigger re-execution of coupled listeners.
  */
-export class Atom<V> extends Field<V> implements Presence<Atom<V>> {
-  private biLinks = new BiLinkMap<null, (val: V) => Matter<void>>();
+export class Atom<V>
+  extends BaseField<readonly [], V>
+  implements Excitation<Atom<V>>
+{
   private currentValue: V;
 
   constructor(initValue: V) {
     super();
     this.currentValue = initValue;
-
-    // Register the initial value so future subscribers find it
-    this.biLinks.linkAllA(null, listener => {
-      return listener(initValue);
-    });
-  }
-
-  public couple(listener: (val: V) => Matter<void>): Matter<void> {
-    return new Effect(addFinalizeFn => {
-      // Connect to the current entry
-      this.biLinks.linkAllB(listener, () => {
-        return listener(this.currentValue);
-      });
-
-      addFinalizeFn(() => {
-        return this.biLinks.unlinkAllB(listener);
-      });
-    });
+    super._set([], initValue);
   }
 
   /** Updates the current value using a modifier function. No-op if the value is unchanged (by reference). */
-  public modify(modifier: (val: V) => V): void {
-    const newValue = modifier(this.currentValue);
-
-    if (newValue === this.currentValue) {
-      return;
-    }
-
-    // Unlink old ID triggers finalize for routines connected to old value
-    this.biLinks.unlinkAllA(null);
-
-    // Update state
-    this.currentValue = newValue;
-
-    // Link new ID triggers init for routines connected to new value
-    this.biLinks.linkAllA(null, listener => {
-      return listener(newValue);
-    });
+  public modify(modifier: (val: V) => V): MaybePromise<void> {
+    const nextValue = modifier(this.currentValue);
+    this.currentValue = nextValue;
+    return super._set([], nextValue);
   }
 
   /** Replaces the current value. No-op if the value is unchanged (by reference). */
-  public set(val: V): void {
-    this.modify(() => val);
+  public set(val: V): MaybePromise<void> {
+    this.currentValue = val;
+    return super._set([], val);
   }
 
   /** Returns the current value without creating a subscription. */
@@ -64,8 +36,9 @@ export class Atom<V> extends Field<V> implements Presence<Atom<V>> {
     return this.currentValue;
   }
 
-  public result: MaybePromise<Atom<V>> = this;
-  public vanish = (): MaybePromise<void> => {
-    return this.biLinks.unlinkAll();
-  };
+  result = this;
+
+  decay(): MaybePromise<void> {
+    return super._decay();
+  }
 }

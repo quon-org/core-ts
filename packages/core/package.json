@@ -23,13 +23,13 @@
     "reactive",
     "reactive-streams",
     "state-management",
-    "blueprint",
+    "diagram",
     "async",
     "typescript"
   ],
   "author": "yukikurage",
   "license": "MIT",
-  "description": "A lightweight reactive programming library built around Field/Matter architecture with Blueprint DSL",
+  "description": "A lightweight reactive programming library built around Field/Operator architecture with Diagram DSL",
   "files": [
     "dist",
     "README.md",
@@ -44,7 +44,7 @@
   "bugs": {
     "url": "https://github.com/quon-org/quon-ts/issues"
   },
-  "sideEffects": false,
+  "sideInteractions": false,
   "publishConfig": {
     "access": "public"
   },

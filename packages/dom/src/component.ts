@@ -2,7 +2,7 @@ import { toField } from '@quon/core';
 import { Component, Element } from './types';
 
 /**
- * Create a component from a blueprint function
+ * Create a component from a diagram function
  * Returns a function that can be used in JSX
  *
  * @example
@@ -15,9 +15,9 @@ import { Component, Element } from './types';
  * <Counter />
  */
 export function component<Props extends Record<string, unknown>>(
-  blueprint: (props: Props) => Element
+  diagram: (props: Props) => Element
 ): Component<Props> {
   return props => {
-    return toField(() => blueprint(props));
+    return toField(() => diagram(props));
   };
 }

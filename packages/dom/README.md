@@ -17,8 +17,8 @@ npm install @quon/dom @quon/core
 {
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "@quon/dom"
-  }
+    "jsxImportSource": "@quon/dom",
+  },
 }
 ```
 
@@ -40,7 +40,7 @@ const Counter = component(() => {
 });
 
 const app = mount(<Counter />, document.getElementById('root')!);
-app.asMatter().materialize();
+app.asOperator().exicite();
 ```
 
 ## API
@@ -51,28 +51,28 @@ Mounts an Element to a DOM node and returns a `Field<void>` managing the renderi
 
 ```tsx
 const app = mount(<App />, document.getElementById('root')!);
-const { vanish } = app.asMatter().materialize();
+const { decay } = app.asOperator().exicite();
 
 // Unmount:
-await vanish();
+await decay();
 ```
 
-### `component(blueprint)`
+### `component(diagram)`
 
-Wraps a Blueprint function into a reusable JSX component.
+Wraps a Diagram function into a reusable JSX component.
 
 ```tsx
-const Greeting = component<{ name: string }>((props) => {
+const Greeting = component<{ name: string }>(props => {
   return <h1>Hello, {props.name}!</h1>;
 });
 
 // Use in JSX:
-<Greeting name="World" />
+<Greeting name="World" />;
 ```
 
 ### `useRender(element, parent)`
 
-Blueprint function that renders an Element into a DOM node. Use this inside `toField()` for lower-level control.
+Diagram function that renders an Element into a DOM node. Use this inside `toField()` for lower-level control.
 
 ### Reactive Props
 
@@ -82,9 +82,7 @@ Props can accept `Field<T>` values for reactive updates without re-rendering the
 const count = useAtom(0);
 
 // Field<string> is accepted as a prop value — updates the DOM directly
-<p className={count.map(n => n > 5 ? 'high' : 'low')}>
-  Count: {count}
-</p>
+<p className={count.map(n => (n > 5 ? 'high' : 'low'))}>Count: {count}</p>;
 ```
 
 ### `Sort`
@@ -93,7 +91,7 @@ Renders children in a dynamic order controlled by a reactive key array:
 
 ```tsx
 const order = useAtom([3, 1, 2]);
-const items = useEnsemble<{ id: number; text: string }>();
+const items = useCluster<{ id: number; text: string }>();
 
 <ul>
   <Sort by={order}>
@@ -101,7 +99,7 @@ const items = useEnsemble<{ id: number; text: string }>();
       <li key={item.id}>{item.text}</li>
     ))}
   </Sort>
-</ul>
+</ul>;
 ```
 
 ### `Fragment`

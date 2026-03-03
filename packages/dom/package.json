@@ -51,7 +51,7 @@
   "bugs": {
     "url": "https://github.com/quon-org/quon-ts/issues"
   },
-  "sideEffects": false,
+  "sideInteractions": false,
   "publishConfig": {
     "access": "public"
   },

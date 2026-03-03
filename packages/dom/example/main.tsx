@@ -1,4 +1,4 @@
-import { useAtom, useEnsemble } from '@quon/core';
+import { useAtom, useCluster } from '@quon/core';
 import { component, mount, Sort } from '../src/index';
 
 // Counter component
@@ -47,7 +47,7 @@ const InputSync = component(() => {
 
 // Input sync example
 const TodoList = component(() => {
-  const todos = useEnsemble<{ id: number; text: string }>();
+  const todos = useCluster<{ id: number; text: string }>();
   const newTodoText = useAtom<string>('');
   const todoOrder = useAtom<unknown[]>([]);
 
@@ -104,5 +104,5 @@ const App = component(() => {
 const root = document.getElementById('root');
 if (root) {
   const app = mount(App({}), root);
-  app.asMatter().materialize();
+  app.asOperator().exicite();
 }

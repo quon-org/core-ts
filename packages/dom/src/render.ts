@@ -1,4 +1,11 @@
-import { Field, toField, use, useCast, useEffect, useLatest } from '@quon/core';
+import {
+  Field,
+  toField,
+  use,
+  useCast,
+  useInteraction,
+  useLatest,
+} from '@quon/core';
 import {
   Element,
   ElementNode,
@@ -9,7 +16,7 @@ import {
 import { isArray, flattenChildren, isFieldElement, isField } from './utils';
 
 /**
- * Render an Element to a parent DOM node (Blueprint function)
+ * Render an Element to a parent DOM node (Diagram function)
  */
 export function useRender(element: Element, parent: Node): void {
   useRenderInternal(element, parent, Field.empty());
@@ -40,7 +47,7 @@ function useInsertNode(
     // beforeNode が更新されるたび、そこに移動する
     // nodeField 内の Node については順番は保証できない (保証したいなら Sort を使うべき)
     const latestBeforeNode = use(latestBeforeNodeField);
-    useEffect(() => {
+    useInteraction(() => {
       insertNode(node, parent, latestBeforeNode); // 移動するだけ (戻したりはしない)
     });
   });
@@ -49,7 +56,7 @@ function useInsertNode(
 /**
  * 与えられた配列の要素ごとに Anchor Node を beforeNode の前に作成して返す
  * 個数の更新、beforeNode の更新に反応して **すべての Anchor Node** を作り直す
- * 順番を保証する場合は blueprint の繰り返しではなくその内部でやる必要がある。
+ * 順番を保証する場合は diagram の繰り返しではなくその内部でやる必要がある。
  */
 function useAnchorNodes<K>(
   countField: Field<K[]>,
@@ -62,7 +69,7 @@ function useAnchorNodes<K>(
     const keys = use(countField);
     const latestBeforeNode = use(latestBeforeNodeField);
 
-    const anchorMap = useEffect(() => {
+    const anchorMap = useInteraction(() => {
       const map = new Map<K, Comment>();
       for (const key of keys) {
         const anchor = document.createComment(`anchor-${String(key)}`);
@@ -72,7 +79,7 @@ function useAnchorNodes<K>(
       return map;
     });
 
-    useEffect(addFinalizeFn => {
+    useInteraction(addFinalizeFn => {
       addFinalizeFn(() => {
         for (const anchor of anchorMap.values()) {
           anchor.remove();
@@ -85,7 +92,7 @@ function useAnchorNodes<K>(
 }
 
 /**
- * Internal render function with optional beforeNode (Blueprint function)
+ * Internal render function with optional beforeNode (Diagram function)
  */
 function useRenderInternal(
   element: Element,
@@ -127,11 +134,11 @@ function useRenderInternal(
 
   // Handle text nodes (string/number)
   if (typeof element === 'string' || typeof element === 'number') {
-    const textNode = useEffect(() => {
+    const textNode = useInteraction(() => {
       return document.createTextNode(String(element));
     });
 
-    useEffect(addFinalizeFn => {
+    useInteraction(addFinalizeFn => {
       addFinalizeFn(async () => {
         textNode.remove();
       });
@@ -174,16 +181,16 @@ function useRenderInternal(
   }
 
   if (element instanceof ElementNode) {
-    // Extract values before any Blueprint calls
+    // Extract values before any Diagram calls
     const tag = element.tag;
     const props = element.props;
     const children = element.children;
 
-    const domElement = useEffect(() => {
+    const domElement = useInteraction(() => {
       return document.createElement(tag);
     });
     // Append to parent
-    useEffect(addFinalizeFn => {
+    useInteraction(addFinalizeFn => {
       addFinalizeFn(async () => {
         domElement.remove();
       });
@@ -201,13 +208,13 @@ function useRenderInternal(
     return;
   }
 
-  useEffect(() => {
+  useInteraction(() => {
     console.warn('useRenderInternal: unknown element', element);
   });
 }
 
 /**
- * Apply props to a DOM element (Blueprint function)
+ * Apply props to a DOM element (Diagram function)
  */
 function useApplyProps(element: HTMLElement, props: Props): void {
   for (const [key, value] of Object.entries(props)) {
@@ -218,7 +225,7 @@ function useApplyProps(element: HTMLElement, props: Props): void {
 
     // Handle ref
     if (key === 'ref' && typeof value === 'function') {
-      useEffect(() => {
+      useInteraction(() => {
         (value as RefCallback)(element);
       });
       continue;
@@ -227,7 +234,7 @@ function useApplyProps(element: HTMLElement, props: Props): void {
     // Handle event listeners (onClick, onInput, etc.)
     if (key.startsWith('on') && typeof value === 'function') {
       const eventName = key.slice(2).toLowerCase();
-      useEffect(addFinalizeFn => {
+      useInteraction(addFinalizeFn => {
         const handler = value as EventListener;
         element.addEventListener(eventName, handler);
 
@@ -242,7 +249,7 @@ function useApplyProps(element: HTMLElement, props: Props): void {
     if (isField(value)) {
       useCast(() => {
         const val = use(value);
-        useEffect(addFinalizeFn => {
+        useInteraction(addFinalizeFn => {
           setProp(element, key, val);
           addFinalizeFn(() => {
             setProp(element, key, undefined);
@@ -253,7 +260,7 @@ function useApplyProps(element: HTMLElement, props: Props): void {
     }
 
     // Handle static values
-    useEffect(() => {
+    useInteraction(() => {
       setProp(element, key, value);
     });
   }

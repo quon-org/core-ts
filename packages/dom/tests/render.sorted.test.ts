@@ -1,4 +1,4 @@
-import { Atom, Portal } from '@quon/core';
+import { Atom, Bridge } from '@quon/core';
 import { describe, expect, test } from 'vitest';
 import { Sort, jsx } from '../src/jsx';
 import { mount } from '../src/mount';
@@ -22,16 +22,16 @@ describe('SortedElement rendering', () => {
     const b = makeTextElement('b');
     const c = makeTextElement('c');
 
-    const elementsField = new Portal<Element>();
+    const elementsField = new Bridge<Element>();
     const keysField = new Atom<unknown[]>([]);
 
     const app = mount(new SortedElement(keysField, elementsField), parent)
-      .asMatter()
-      .materialize();
+      .asOperator()
+      .exicite();
 
-    const pa = elementsField.connect(a).materialize();
-    const pb = elementsField.connect(b).materialize();
-    const pc = elementsField.connect(c).materialize();
+    const pa = elementsField.connect(a).exicite();
+    const pb = elementsField.connect(b).exicite();
+    const pc = elementsField.connect(c).exicite();
 
     expect(renderedLabels(parent)).toEqual(['a', 'b', 'c']);
 
@@ -40,10 +40,10 @@ describe('SortedElement rendering', () => {
 
     expect(renderedLabels(parent)).toEqual(['b', 'c', 'a']);
 
-    pa.vanish();
-    pb.vanish();
-    pc.vanish();
-    app.vanish();
+    pa.decay();
+    pb.decay();
+    pc.decay();
+    app.decay();
   });
 
   test('Sort unwraps JSX-style array child that contains a Field<Element>', () => {
@@ -53,7 +53,7 @@ describe('SortedElement rendering', () => {
     const b = makeTextElement('b');
     const c = makeTextElement('c');
 
-    const elementsField = new Portal<Element>();
+    const elementsField = new Bridge<Element>();
     const keysField = new Atom<unknown[]>([]);
 
     const sorted = Sort({
@@ -61,26 +61,26 @@ describe('SortedElement rendering', () => {
       children: [elementsField],
     });
 
-    const app = mount(sorted, parent).asMatter().materialize();
+    const app = mount(sorted, parent).asOperator().exicite();
 
-    const pa = elementsField.connect(a).materialize();
-    const pb = elementsField.connect(b).materialize();
-    const pc = elementsField.connect(c).materialize();
+    const pa = elementsField.connect(a).exicite();
+    const pb = elementsField.connect(b).exicite();
+    const pc = elementsField.connect(c).exicite();
 
     keysField.set([c, a, b]);
 
     expect(renderedLabels(parent)).toEqual(['c', 'a', 'b']);
 
-    pa.vanish();
-    pb.vanish();
-    pc.vanish();
-    app.vanish();
+    pa.decay();
+    pb.decay();
+    pc.decay();
+    app.decay();
   });
 
   test('uses jsx key argument for Sort ordering', () => {
     const parent = document.createElement('div');
 
-    const elementsField = new Portal<Element>();
+    const elementsField = new Bridge<Element>();
     const keysField = new Atom<unknown[]>([]);
 
     const app = mount(
@@ -90,24 +90,24 @@ describe('SortedElement rendering', () => {
       }),
       parent
     )
-      .asMatter()
-      .materialize();
+      .asOperator()
+      .exicite();
 
     const a = jsx('span', { children: ['a'] }, 1);
     const b = jsx('span', { children: ['b'] }, 2);
     const c = jsx('span', { children: ['c'] }, 3);
 
-    const pa = elementsField.connect(a).materialize();
-    const pb = elementsField.connect(b).materialize();
-    const pc = elementsField.connect(c).materialize();
+    const pa = elementsField.connect(a).exicite();
+    const pb = elementsField.connect(b).exicite();
+    const pc = elementsField.connect(c).exicite();
 
     keysField.set([3, 1, 2]);
 
     expect(renderedLabels(parent)).toEqual(['c', 'a', 'b']);
 
-    pa.vanish();
-    pb.vanish();
-    pc.vanish();
-    app.vanish();
+    pa.decay();
+    pb.decay();
+    pc.decay();
+    app.decay();
   });
 });

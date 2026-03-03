@@ -1,16 +1,13 @@
 import {
-  use,
-  useAtom,
-  useCast,
-  useConcatenated,
   useConnection,
-  useEffect,
-  useEnsemble,
-  usePortal,
-} from './blueprint';
+  useInteraction,
+  useCluster,
+  useBridge,
+  useCasts,
+} from './diagram';
 import { Field } from './field';
 import { MaybePromise } from './util';
-import { Ensemble } from './field/ensemble';
+import { Cluster } from './field/cluster';
 
 /**
  * Groups values from a source Field by a key function.
@@ -19,48 +16,46 @@ import { Ensemble } from './field/ensemble';
  * @param sourceField The source Field to group.
  * @param keyFn A function that extracts a grouping key from each value.
  */
-export function useGroupBy<V, K>(
-  sourceField: Field<V>,
-  keyFn: (val: V) => K
-): Field<{ key: K; group: Field<V> }> {
+export function useGroupBy<P extends unknown[], V, K>(
+  sourceField: Field<P, V>,
+  keyFn: (val: V, coodinate: readonly [...P]) => K
+): Field<[K], Field<P, V>> {
   // group の中身を持っておく
-  const groupsRef = useEffect(addFinalizeFn => {
+  const groupsRef = useInteraction(addFinalizeFn => {
     const groups = new Map<
       K,
       {
-        portal: Ensemble<V>; // 値を突っ込む
+        bridge: Cluster<P, V>; // 値を突っ込む
         count: number; // グループに属する値の数
-        vanish: () => MaybePromise<void>; // 値を消すときに呼んでください
+        decay: () => MaybePromise<void>; // 値を消すときに呼んでください
       }
     >();
     addFinalizeFn(() => {
-      const vanishTasks = [...groups.values()].map(group => group.vanish());
+      const decayTasks = [...groups.values()].map(group => group.decay());
       groups.clear();
-      if (vanishTasks.some(task => task instanceof Promise)) {
-        return Promise.all(vanishTasks).then(() => undefined);
+      if (decayTasks.some(task => task instanceof Promise)) {
+        return Promise.all(decayTasks).then(() => undefined);
       }
       return;
     });
     return groups;
   });
-  const outerEnsemble = useEnsemble<{ key: K; group: Field<V> }>();
-  useCast(() => {
-    const source = use(sourceField); // sourceField を監視
-    const key = keyFn(source); // キーを計算
+  const outerCluster = useCluster<[K], Field<P, V>>();
+  useCasts(sourceField, (source, coord) => {
+    const key = keyFn(source, coord); // キーを計算
 
     const groupState = groupsRef.get(key);
 
-    const newGroupState = useEffect(() => {
+    const newGroupState = useInteraction(() => {
       if (!groupState) {
-        const p = new Ensemble<V>();
-        const outerVal = { key, group: p };
-        outerEnsemble.add(outerVal);
+        const p = new Cluster<P, V>();
+        outerCluster.set([key], p);
         const newGroupState = {
-          portal: p,
+          bridge: p,
           count: 0,
-          vanish: async (): Promise<void> => {
-            await p.vanish();
-            return outerEnsemble.remove(outerVal);
+          decay: async (): Promise<void> => {
+            await p.decay();
+            return outerCluster.delete([key]);
           },
         };
         groupsRef.set(key, newGroupState);
@@ -70,20 +65,34 @@ export function useGroupBy<V, K>(
       }
     });
 
-    useEffect(addFinalizeFn => {
-      newGroupState.portal.add(source);
+    useInteraction(addFinalizeFn => {
+      newGroupState.bridge.set(coord, source);
       newGroupState.count++;
-      addFinalizeFn(async () => {
-        await newGroupState.portal.remove(source);
+      console.log(
+        `Added value to group ${key}, count is now ${newGroupState.count}`
+      );
+      addFinalizeFn(() => {
+        const deleteResult = newGroupState.bridge.delete(coord);
         newGroupState.count--;
-        if (newGroupState.count === 0) {
-          groupsRef.delete(key);
-          await newGroupState.vanish();
-        }
+        console.log(
+          `Removed value from group ${key}, count is now ${newGroupState.count}`
+        );
+        setTimeout(async () => {
+          // ちょっと待つ
+          // (カウントが 0 個になったあと同期的に値が追加された場合、グループを消さないようにするため)
+          console.log(
+            `Checking if group ${key} should be deleted, count: ${newGroupState.count}`
+          );
+          if (newGroupState.count === 0) {
+            groupsRef.delete(key);
+            await newGroupState.decay();
+          }
+        }, 0);
+        return deleteResult;
       });
     });
   });
-  return outerEnsemble;
+  return outerCluster;
 }
 
 /**
@@ -92,22 +101,18 @@ export function useGroupBy<V, K>(
  * @param sourceField A Field emitting arrays of values.
  * @param keyFn A function that extracts a unique key from each value.
  */
-export function useArray<K, V>(
-  sourceField: Field<Array<V>>,
+export function useArray<const P extends readonly unknown[], K, V>(
+  sourceField: Field<P, Array<V>>,
   keyFn: (v: V) => K
-): [Field<{ key: K; value: Field<V> }>, Field<Array<K>>] {
-  const allElemPortal = usePortal<V>(); // 全ての要素を流す Portal
-  useCast(() => {
-    const source = use(sourceField);
-    useConcatenated(
-      source.map(elem => (): void => useConnection(allElemPortal, elem))
+): [Field<[K], Field<[...P, number], V>>, Field<P, Array<K>>] {
+  const allElemBridge = useBridge<[...P, number], V>(); // 全ての要素を流す Bridge
+  useCasts(sourceField, (source, coord) => {
+    source.forEach((elem, idx): void =>
+      useConnection(allElemBridge, [...coord, idx], elem)
     );
   });
   // すべての要素をグループ化
-  const grouped = useGroupBy(allElemPortal, keyFn).map(({ key, group }) => ({
-    key,
-    value: group,
-  }));
+  const grouped = useGroupBy(allElemBridge, keyFn);
   const keys = sourceField.map(arr => arr.map(keyFn));
   return [grouped, keys];
 }
@@ -116,28 +121,9 @@ export function useArray<K, V>(
  * Deduplicates values from a source Field by identity.
  * Only emits when a new unique value appears.
  */
-export function useMemoize<T>(sourceField: Field<T>): Field<T> {
-  const grouped = useGroupBy(sourceField, v => v).map(({ key }) => key);
+export function useMemoize<P extends unknown[], T>(
+  sourceField: Field<P, T>
+): Field<[T], T> {
+  const grouped = useGroupBy(sourceField, v => v).map((_, [coord]) => coord);
   return grouped;
-}
-
-/**
- * Tracks the latest value from a source Field.
- * Returns a Field that always emits the most recently seen value.
- * @param sourceField The source Field to track.
- * @param unit The default value when no values have been emitted yet.
- */
-export function useLatest<T>(sourceField: Field<T>, unit: T): Field<T> {
-  const memoized = useMemoize(sourceField);
-  const values = useAtom<T[]>([]);
-  useCast(() => {
-    const source = use(memoized);
-    useEffect(addFinalizeFn => {
-      values.modify(prev => [...prev, source]);
-      addFinalizeFn(() => {
-        values.modify(prev => prev.filter(v => v !== source));
-      });
-    });
-  });
-  return values.map(arr => arr[arr.length - 1] ?? unit);
 }
