@@ -6,8 +6,8 @@ import {
   useCasts,
 } from './diagram';
 import { Field } from './field';
-import { MaybePromise } from './util';
-import { Cluster } from './field/cluster';
+import { Structural } from './structual';
+import { Dimension, DimensionScalar } from './trie';
 
 /**
  * Groups values from a source Field by a key function.
@@ -16,83 +16,48 @@ import { Cluster } from './field/cluster';
  * @param sourceField The source Field to group.
  * @param keyFn A function that extracts a grouping key from each value.
  */
-export function useGroupBy<P extends unknown[], V, K>(
+export function useGroupBy<P extends Dimension, V, K extends DimensionScalar>(
   sourceField: Field<P, V>,
   keyFn: (val: V, coodinate: readonly [...P]) => K
 ): Field<[K], Field<P, V>> {
-  // group の中身を持っておく
-  const groupsRef = useInteraction(addFinalizeFn => {
-    const groups = new Map<
-      K,
-      {
-        bridge: Cluster<P, V>; // 値を突っ込む
-        count: number; // グループに属する値の数
-        decay: () => MaybePromise<void>; // 値を消すときに呼んでください
-      }
-    >();
-    addFinalizeFn(() => {
-      const decayTasks = [...groups.values()].map(group => group.decay());
-      groups.clear();
-      if (decayTasks.some(task => task instanceof Promise)) {
-        return Promise.all(decayTasks).then(() => undefined);
-      }
-      return;
-    });
-    return groups;
-  });
-  const outerCluster = useCluster<[K], Field<P, V>>();
+  // それぞれの key に対して、対応する Field を作成する関数
+  const createGroupField = (key: K): Field<P, V> =>
+    sourceField.filter((val, coodinate) => keyFn(val, coodinate) === key);
+
+  // 現在保持している key 一覧 Cluster
+  const keysField = useCluster<[K], number>();
+
+  // sourceField の値の変化に応じて keysField を更新
   useCasts(sourceField, (source, coord) => {
-    const key = keyFn(source, coord); // キーを計算
-
-    const groupState = groupsRef.get(key);
-
-    const newGroupState = useInteraction(() => {
-      if (!groupState) {
-        const p = new Cluster<P, V>();
-        outerCluster.set([key], p);
-        const newGroupState = {
-          bridge: p,
-          count: 0,
-          decay: async (): Promise<void> => {
-            await p.decay();
-            return outerCluster.delete([key]);
-          },
-        };
-        groupsRef.set(key, newGroupState);
-        return newGroupState;
-      } else {
-        return groupState;
-      }
-    });
-
     useInteraction(addFinalizeFn => {
-      newGroupState.bridge.set(coord, source);
-      newGroupState.count++;
-      console.log(
-        `Added value to group ${key}, count is now ${newGroupState.count}`
-      );
+      const key = keyFn(source, coord);
+      keysField.modify([key], prevValue => {
+        if (prevValue === undefined) {
+          return 1;
+        } else {
+          return prevValue + 1;
+        }
+      });
       addFinalizeFn(() => {
-        const deleteResult = newGroupState.bridge.delete(coord);
-        newGroupState.count--;
-        console.log(
-          `Removed value from group ${key}, count is now ${newGroupState.count}`
-        );
-        setTimeout(async () => {
-          // ちょっと待つ
-          // (カウントが 0 個になったあと同期的に値が追加された場合、グループを消さないようにするため)
-          console.log(
-            `Checking if group ${key} should be deleted, count: ${newGroupState.count}`
-          );
-          if (newGroupState.count === 0) {
-            groupsRef.delete(key);
-            await newGroupState.decay();
+        keysField.modify([key], prevValue => {
+          if (prevValue === undefined) {
+            console.warn(
+              `Key ${String(key)} was expected to exist in keysField`
+            );
+            return undefined;
+          } else if (prevValue === 1) {
+            return undefined;
+          } else {
+            return prevValue - 1;
           }
-        }, 0);
-        return deleteResult;
+        });
       });
     });
   });
-  return outerCluster;
+
+  // keysField の key 一覧をもとに、グループ化された Field を作成
+  const groupedField = keysField.map((_, [key]) => createGroupField(key));
+  return groupedField;
 }
 
 /**
@@ -101,11 +66,15 @@ export function useGroupBy<P extends unknown[], V, K>(
  * @param sourceField A Field emitting arrays of values.
  * @param keyFn A function that extracts a unique key from each value.
  */
-export function useArray<const P extends readonly unknown[], K, V>(
+export function useArray<
+  const P extends Dimension,
+  K extends DimensionScalar,
+  V,
+>(
   sourceField: Field<P, Array<V>>,
   keyFn: (v: V) => K
-): [Field<[K], Field<[...P, number], V>>, Field<P, Array<K>>] {
-  const allElemBridge = useBridge<[...P, number], V>(); // 全ての要素を流す Bridge
+): [Field<[K], Field<readonly [...P, number], V>>, Field<P, Array<K>>] {
+  const allElemBridge = useBridge<readonly [...P, number], V>(); // 全ての要素を流す Bridge
   useCasts(sourceField, (source, coord) => {
     source.forEach((elem, idx): void =>
       useConnection(allElemBridge, [...coord, idx], elem)
@@ -121,9 +90,10 @@ export function useArray<const P extends readonly unknown[], K, V>(
  * Deduplicates values from a source Field by identity.
  * Only emits when a new unique value appears.
  */
-export function useMemoize<P extends unknown[], T>(
-  sourceField: Field<P, T>
-): Field<[T], T> {
-  const grouped = useGroupBy(sourceField, v => v).map((_, [coord]) => coord);
-  return grouped;
+export function useCoalescing<
+  P extends Dimension,
+  T extends DimensionScalar & Structural,
+>(sourceField: Field<P, T>): Field<readonly [T], T> {
+  const grouped = useGroupBy(sourceField, val => val);
+  return grouped.map((_, [val]) => val);
 }

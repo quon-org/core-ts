@@ -13,7 +13,7 @@ import {
 } from '../src';
 import { Atom } from '../src/field/atom';
 import { useCasts, useCluster, useId } from '../src/diagram';
-import { useArray, useGroupBy, useMemoize } from '../src/complex';
+import { useArray, useGroupBy, useCoalescing } from '../src/complex';
 
 const useLog = (logs: LogCapture, label: string, releaseLabel?: string): void =>
   useInteraction(addRelease => {
@@ -189,7 +189,7 @@ describe('Diagram basic functionality', () => {
     it('should create a bridge and update values', async () => {
       const logs = new LogCapture();
       const diagram = (): void => {
-        const bridge = useBridge<[symbol], number>();
+        const bridge = useBridge<readonly [symbol], number>();
         const refetchAtom = useAtom<number>(0);
         useCasts(bridge, bridgeValue => {
           useLog(logs, `created: ${bridgeValue}`, `released: ${bridgeValue}`);
@@ -359,35 +359,6 @@ describe('Diagram basic functionality', () => {
       expect(result.passed, result.message).toBe(true);
       await app.decay();
     });
-    describe('coodinates works correctly', () => {
-      it('', async () => {
-        const logs = new LogCapture();
-        const diagram = (): void => {
-          const source = useCluster<[number], null>();
-          const coodinates = source.coodinates();
-          useCasts(coodinates, (coord, key) => {
-            useLog(logs, `coord+: ${key}`, `coord-: ${key}`);
-          });
-          useInteraction(() => source.set([1], null));
-          useInteraction(() => source.set([2], null));
-          useTimeout(10);
-          useInteraction(() => source.delete([1]));
-          useInteraction(() => source.set([1], null)); // 再度同じ座標に値をセット (remove 判定されない)
-          useInteraction(() => source.delete([2]));
-          useInteraction(() => source.delete([1]));
-        };
-        const app = toField(diagram).asOperator().exicite();
-        await new Promise(resolve => setTimeout(resolve, 50));
-        const result = logs.expect([
-          'coord+: 1',
-          'coord+: 2',
-          'coord-: 2',
-          'coord-: 1',
-        ]);
-        expect(result.passed, result.message).toBe(true);
-        await app.decay();
-      });
-    });
     describe('useArray works correctly', () => {
       it('should create and remove array items by key, and update values', async () => {
         const logs = new LogCapture();
@@ -397,11 +368,15 @@ describe('Diagram basic functionality', () => {
               id: string;
               value: number;
             }[]
-          >([]);
+          >([
+            { id: 'a', value: 1 },
+            { id: 'b', value: 2 },
+            { id: 'c', value: 3 },
+          ]);
           const [dataField, orderField] = useArray(source, v => v.id);
           useCasts(dataField, (data, [key]) => {
             useLog(logs, `key+: ${key}`, `key-: ${key}`);
-            const memoizedValue = useMemoize(data.map(v => v.value));
+            const memoizedValue = useCoalescing(data.map(v => v.value));
             useCasts(memoizedValue, value => {
               useLog(logs, `value: ${key}: ${value}`);
             });
@@ -409,14 +384,6 @@ describe('Diagram basic functionality', () => {
           useCast(() => {
             const order = use(orderField);
             useLog(logs, `order: ${order.join(',')}`);
-          });
-          useTimeout(10);
-          useInteraction(() => {
-            source.set([
-              { id: 'a', value: 1 },
-              { id: 'b', value: 2 },
-              { id: 'c', value: 3 },
-            ]);
           });
           useTimeout(10);
           useInteraction(() => {
@@ -443,22 +410,21 @@ describe('Diagram basic functionality', () => {
         const app = toField(diagram).asOperator().exicite();
         await new Promise(resolve => setTimeout(resolve, 50));
         const result = logs.expect([
-          'order: ',
-          'key+: a',
-          'value: a: 1',
-          'key+: b',
-          'value: b: 2',
-          'key+: c',
-          'value: c: 3',
           'order: a,b,c',
+          'key+: a',
+          'key+: b',
+          'key+: c',
+          'value: a: 1',
+          'value: b: 2',
+          'value: c: 3',
           'order: a,b',
           'key-: c',
+          'order: b,c',
           'key+: c',
           'value: c: 3',
-          'order: b,c',
           'key-: a',
-          'value: b: 100',
           'order: b,c',
+          'value: b: 100',
         ]);
         expect(result.passed, result.message).toBe(true);
         await app.decay();

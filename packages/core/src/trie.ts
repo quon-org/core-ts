@@ -1,9 +1,21 @@
+export type DimensionScalar =
+  | string
+  | number
+  | symbol
+  | null
+  | undefined
+  | boolean;
+
+export type Dimension = readonly DimensionScalar[];
+
+export type ZeroDimension = readonly [];
+
 /** Wrapper to distinguish stored values from child Maps */
 class Leaf<V> {
   constructor(public value: V) {}
 }
 
-type TrieNode = Map<unknown, TrieNode | Leaf<unknown>>;
+type TrieNode = Map<DimensionScalar, TrieNode | Leaf<unknown>>;
 
 /**
  * A type-safe Trie indexed by a tuple path P with values of type V.
@@ -22,10 +34,10 @@ type TrieNode = Map<unknown, TrieNode | Leaf<unknown>>;
  * trie.delete(["a", 0, true]); // true
  * ```
  */
-export class Trie<P extends readonly unknown[], V> {
+export class Trie<P extends Dimension, V> {
   private root: TrieNode = new Map();
 
-  get(coordinate: readonly [...P]): V | undefined {
+  get(coordinate: P): V | undefined {
     let node: TrieNode = this.root;
     for (let i = 0; i < coordinate.length - 1; i++) {
       const child = node.get(coordinate[i]);
@@ -37,7 +49,7 @@ export class Trie<P extends readonly unknown[], V> {
     return undefined;
   }
 
-  set(coordinate: readonly [...P], value: V): void {
+  set(coordinate: P, value: V): void {
     let node: TrieNode = this.root;
     for (let i = 0; i < coordinate.length - 1; i++) {
       let child = node.get(coordinate[i]);
@@ -50,8 +62,8 @@ export class Trie<P extends readonly unknown[], V> {
     node.set(coordinate[coordinate.length - 1], new Leaf(value));
   }
 
-  delete(coordinate: readonly [...P]): boolean {
-    const stack: { map: TrieNode; key: unknown }[] = [];
+  delete(coordinate: P): boolean {
+    const stack: { map: TrieNode; key: DimensionScalar }[] = [];
     let node: TrieNode = this.root;
 
     for (let i = 0; i < coordinate.length - 1; i++) {
@@ -81,7 +93,7 @@ export class Trie<P extends readonly unknown[], V> {
     return true;
   }
 
-  has(coordinate: readonly [...P]): boolean {
+  has(coordinate: P): boolean {
     return this.get(coordinate) !== undefined;
   }
 

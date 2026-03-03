@@ -1,7 +1,6 @@
-import { Coalescer } from '../coalescer';
 import { Field } from '../field';
 import { Excitation, Interaction, Operator } from '../operator';
-import { Trie } from '../trie';
+import { Dimension, Trie } from '../trie';
 import { MaybePromise } from '../util';
 
 type ExcitationState<V> =
@@ -13,7 +12,7 @@ type ExcitationState<V> =
   // overwritable が false の場合は、nextVal の上書きが不可能。これは主に、coupling の解除や、BaseField 自体の decay 時の状態である。
   | { decaying: Promise<void>; overwritable: false };
 
-export class BaseField<P extends readonly unknown[], V> extends Field<P, V> {
+export class BaseField<P extends Dimension, V> extends Field<P, V> {
   // それぞれのcoupleに対して、Coodinate 毎の State を保持している。
   private excitations: Map<symbol, Trie<P, ExcitationState<V>>> = new Map();
 
@@ -22,11 +21,11 @@ export class BaseField<P extends readonly unknown[], V> extends Field<P, V> {
 
   // この Set に関数を置いておくと、値が set / unset された際に通知される。
   private mutationListeners = new Set<
-    (event: { coodinate: readonly [...P]; nextVal?: V }) => MaybePromise<void>
+    (event: { coodinate: P; nextVal?: V }) => MaybePromise<void>
   >();
 
   public couple(
-    listener: (val: V, coodinate: readonly [...P]) => Operator<void>
+    listener: (val: V, coodinate: P) => Operator<void>
   ): Operator<void> {
     const excitations = this.excitations;
     return new Interaction(addFinalizeFn => {
@@ -40,7 +39,7 @@ export class BaseField<P extends readonly unknown[], V> extends Field<P, V> {
 
       // mutationListeners に登録して、値の変更を監視。
       const mutationListener = (event: {
-        coodinate: readonly [...P];
+        coodinate: P;
         nextVal?: V;
       }): MaybePromise<void> => {
         // coodinate に対応する State を trie から取り出す。
@@ -185,73 +184,7 @@ export class BaseField<P extends readonly unknown[], V> extends Field<P, V> {
     });
   }
 
-  public coodinates(): Field<[...P], null> {
-    const mutationListeners = this.mutationListeners;
-    const InnerClassRef = class InnerClass
-      extends BaseField<[...P], null>
-      implements Excitation<InnerClass>
-    {
-      // 親 Field の mutationListeners を Proxy
-      private coalescer = new Coalescer<{
-        coodinate: readonly [...P];
-        type: 'set' | 'delete';
-      }>();
-
-      private mutationListener = (event: {
-        coodinate: readonly [...P];
-        nextVal?: V;
-      }): MaybePromise<void> => {
-        if ('nextVal' in event) {
-          this.coalescer.fire({ coodinate: event.coodinate, type: 'set' });
-        } else {
-          this.coalescer.fire({ coodinate: event.coodinate, type: 'delete' });
-        }
-        return;
-      };
-      // coalescer に対して購読
-      private coalescerListener = (
-        events: {
-          coodinate: readonly [...P];
-          type: 'set' | 'delete';
-        }[]
-      ): void => {
-        // それぞれの coodinate について、最後のイベントを取る
-        const lastEventMap = new Map<readonly [...P], 'set' | 'delete'>();
-        for (const event of events) {
-          lastEventMap.set(event.coodinate, event.type);
-        }
-        // currentValuus を見に存在せず、set されているものについては _set する。
-        // 逆もしかり
-        for (const [coodinate, type] of lastEventMap.entries()) {
-          const exists = this.currentValues.has(coodinate);
-          if (!exists && type === 'set') {
-            super._set(coodinate, null);
-          } else if (exists && type === 'delete') {
-            super._unset(coodinate);
-          }
-        }
-      };
-
-      constructor() {
-        super();
-        mutationListeners.add(this.mutationListener);
-        this.coalescer.subscribe(this.coalescerListener);
-      }
-
-      result = this;
-
-      decay(): MaybePromise<void> {
-        mutationListeners.delete(this.mutationListener);
-        this.coalescer.unsubscribe(this.coalescerListener);
-        return super._decay();
-      }
-    };
-    return Field.ofOperator(Operator.ofClass(InnerClassRef)).flatMap(
-      inner => inner
-    );
-  }
-
-  protected _set(coodinate: readonly [...P], val: V): MaybePromise<void> {
+  protected _set(coodinate: P, val: V): MaybePromise<void> {
     const mutationPromises: Promise<void>[] = [];
     this.currentValues.set(coodinate, val);
     // 値を set するたびに mutationListeners に通知する。
@@ -267,7 +200,7 @@ export class BaseField<P extends readonly unknown[], V> extends Field<P, V> {
     return;
   }
 
-  protected _unset(coodinate: readonly [...P]): MaybePromise<void> {
+  protected _unset(coodinate: P): MaybePromise<void> {
     const mutationPromises: Promise<void>[] = [];
     this.currentValues.delete(coodinate);
     // 値を unset するたびに mutationListeners に通知する。

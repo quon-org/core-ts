@@ -7,7 +7,7 @@ export { Bridge } from './field/bridge';
 export { Cluster } from './field/cluster';
 export type { MaybePromise } from './util';
 export type { Context } from './diagram';
-export { useMemoize, useArray, useGroupBy } from './complex';
+export { useCoalescing, useArray, useGroupBy } from './complex';
 
 // Diagram DSL re-exports
 export {

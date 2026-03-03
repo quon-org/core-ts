@@ -4,6 +4,8 @@ import { Cluster } from './field/cluster';
 import { Bridge } from './field/bridge';
 import { IdOp, Interaction, Operator, Ref, RefOp } from './operator';
 import { MaybePromise } from './util';
+import { Structural } from './structual';
+import { Dimension } from './trie';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DiagramResult = any;
@@ -295,10 +297,10 @@ export function useCast<T>(diagram: () => T): Scalar<T> {
   return useOperator(Bridge.cast(toField(() => diagram(), userCtx)));
 }
 
-export function useScatter<P extends unknown[], P2 extends unknown[], T, T2>(
+export function useScatter<P extends Dimension, P2 extends Dimension, T, T2>(
   field: Field<P, T>,
-  diagram: (val: T, coodinate: readonly [...P]) => Field<P2, T2>
-): Field<[...P, ...P2], T2> {
+  diagram: (val: T, coodinate: P) => Field<P2, T2>
+): Field<readonly [...P, ...P2], T2> {
   const userCtx = useUserContext();
   return useOperator(
     Bridge.cast(
@@ -311,10 +313,10 @@ export function useScatter<P extends unknown[], P2 extends unknown[], T, T2>(
   );
 }
 
-export function useCasts<P extends readonly unknown[], T, T2>(
+export function useCasts<P extends Dimension, T, T2>(
   field: Field<P, T>,
-  diagram: (val: T, coodinate: readonly [...P]) => T2
-): Field<[...P], T2> {
+  diagram: (val: T, coodinate: P) => T2
+): Field<readonly [...P], T2> {
   const userCtx = useUserContext();
   return useOperator(
     Bridge.cast(
@@ -329,7 +331,7 @@ export function useCasts<P extends readonly unknown[], T, T2>(
  * Create a single-value state (Atom) within a Diagram.
  * The Atom can be updated with `set()` or `modify()`, which triggers re-execution of dependent Diagrams.
  */
-export function useAtom<T>(initialValue: T): Atom<T> {
+export function useAtom<T extends Structural>(initialValue: T): Atom<T> {
   return useOperator(Operator.ofClass(Atom, initialValue));
 }
 
@@ -337,7 +339,7 @@ export function useAtom<T>(initialValue: T): Atom<T> {
  * Create a multi-value state (Bridge) within a Diagram.
  * Values can be dynamically connected and disconnected via `useConnection()`.
  */
-export function useBridge<P extends unknown[], T>(): Bridge<P, T> {
+export function useBridge<P extends Dimension, T>(): Bridge<P, T> {
   return useOperator(Operator.ofClass(Bridge<P, T>));
 }
 
@@ -346,7 +348,10 @@ export function useBridge<P extends unknown[], T>(): Bridge<P, T> {
  * The Cluster allows adding and removing values by identity.
  * @returns An Cluster instance.
  */
-export function useCluster<P extends unknown[], T>(): Cluster<P, T> {
+export function useCluster<
+  P extends Dimension,
+  T extends Structural,
+>(): Cluster<P, T> {
   return useOperator(Operator.ofClass(Cluster<P, T>));
 }
 
@@ -356,9 +361,9 @@ export function useCluster<P extends unknown[], T>(): Cluster<P, T> {
  * @param bridge The Bridge to connect to.
  * @param val The value to connect.
  */
-export function useConnection<P extends unknown[], T>(
+export function useConnection<P extends Dimension, T>(
   bridge: Bridge<P, T>,
-  coodinate: readonly [...P],
+  coodinate: P,
   val: T
 ): void {
   useOperator(bridge.connect(coodinate, val));

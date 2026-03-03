@@ -1,6 +1,6 @@
 import { Field } from '../field';
 import { Interaction, Operator, Excitation } from '../operator';
-import { Trie } from '../trie';
+import { Dimension, Trie } from '../trie';
 import { MaybePromise } from '../util';
 import { BaseField } from './base';
 
@@ -8,7 +8,7 @@ import { BaseField } from './base';
  * A dynamic multi-value reactive state container with indexed entries.
  * Values can be connected and disconnected dynamically via `connect()`.
  */
-export class Bridge<P extends readonly unknown[], V>
+export class Bridge<P extends Dimension, V>
   extends BaseField<P, V>
   implements Excitation<Bridge<P, V>>
 {
@@ -19,7 +19,7 @@ export class Bridge<P extends readonly unknown[], V>
   }
 
   /** Connects a value to this Bridge. The value is disconnected when the returned Operator is decayed. */
-  connect(coodinate: readonly [...P], val: V): Operator<void> {
+  connect(coodinate: P, val: V): Operator<void> {
     return new Interaction(addFinalizeFn => {
       if (this.currentFilledCoordinates.has(coodinate)) {
         console.warn(`Coordinate ${coodinate} is already filled`);
@@ -40,7 +40,7 @@ export class Bridge<P extends readonly unknown[], V>
   }
 
   /** Casts a Field through a Bridge, returning a Operator that resolves to the Bridge as a Field. */
-  static cast<P extends readonly unknown[], T>(
+  static cast<P extends Dimension, T>(
     field: Field<P, T>
   ): Operator<Field<P, T>> {
     return Operator.ofClass(Bridge<P, T>).flatMap(bridge =>
