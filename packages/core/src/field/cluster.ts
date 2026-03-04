@@ -33,7 +33,6 @@ export class Cluster<P extends Dimension, V extends Structural>
   extends BaseField<P, V>
   implements Excitation<Cluster<P, V>>
 {
-  private currentFilledCoordinates = new Trie<P, V>();
   // 同期的なイベントの連鎖をまとめる
   private coalescer = new Coalescer<ClusterMutationEvent<P, V>>();
 
@@ -44,17 +43,16 @@ export class Cluster<P extends Dimension, V extends Structural>
 
   /** Returns a snapshot of all currently connected values. */
   public items(): readonly V[] {
-    return Array.from(this.currentFilledCoordinates.values());
+    return Array.from(this.currentValues.values());
   }
 
   public processCoalescer(evs: ClusterMutationEvent<P, V>[]): void {
-    console.log(`Processing ${evs.length} events in Cluster coalescer`);
     // イベントを順番に処理して、coordinate 毎の最終状態を計算する
     // deleteIf は全 coordinate に影響するため、coordinate 別の集計ではなく順次処理が必要
     const snapshot = new Trie<P, V | undefined>();
 
     // 初期値: 現在の値をコピー
-    for (const [coodinate, val] of this.currentFilledCoordinates.entries()) {
+    for (const [coodinate, val] of this.currentValues.entries()) {
       snapshot.set(coodinate, val);
     }
 
@@ -77,15 +75,15 @@ export class Cluster<P extends Dimension, V extends Structural>
 
     // 差分を適用
     for (const [coodinate, nextVal] of snapshot.entries()) {
-      const currentVal = this.currentFilledCoordinates.get(coodinate);
+      const currentVal = this.currentValues.get(coodinate);
       if (nextVal === currentVal) {
         continue;
       }
       if (nextVal !== undefined) {
-        this.currentFilledCoordinates.set(coodinate, nextVal);
+        this.currentValues.set(coodinate, nextVal);
         super._set(coodinate, nextVal);
       } else {
-        this.currentFilledCoordinates.delete(coodinate);
+        this.currentValues.delete(coodinate);
         super._unset(coodinate);
       }
     }
@@ -93,13 +91,11 @@ export class Cluster<P extends Dimension, V extends Structural>
 
   /** Adds a value to the set, notifying all coupled listeners. */
   public set(coodinate: P, val: V): void {
-    console.log(`Added coordinate ${coodinate} to cluster with value ${val}`);
     this.coalescer.fire({ type: 'set', coodinate, val });
   }
 
   /** Removes a value from the set, cleaning up associated listeners. */
   public delete(coodinate: P): void {
-    console.log(`Deleted coordinate ${coodinate} from cluster`);
     this.coalescer.fire({ type: 'delete', coodinate });
   }
 

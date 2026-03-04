@@ -1,10 +1,11 @@
 import {
   Field,
+  Scalar,
   toField,
   use,
   useCast,
+  useCasts,
   useInteraction,
-  useLatest,
 } from '@quon/core';
 import {
   Element,
@@ -13,7 +14,11 @@ import {
   RefCallback,
   SortedElement,
 } from './types';
-import { isArray, flattenChildren, isFieldElement, isField } from './utils';
+import { isArray, flattenChildren, isFieldElement, isFieldProp } from './utils';
+import { DimensionScalar } from '../../core/dist/trie';
+
+export const globalFragment: DocumentFragment =
+  document.createDocumentFragment();
 
 /**
  * Render an Element to a parent DOM node (Diagram function)
@@ -34,21 +39,26 @@ function insertNode(node: Node, parent: Node, beforeNode: Node | null): void {
   }
 }
 
-function useInsertNode(
-  nodeField: Field<ChildNode>, // 描画対象の Node
-  parent: Node,
-  beforeNodeField: Field<Node> // 最も最後に渡された Node を優先, Node が無い場合は親の最後に追加
-): void {
-  const latestBeforeNodeField = useLatest(beforeNodeField, null);
+function detachNode(node: ChildNode): void {
+  globalFragment.appendChild(node);
+}
 
+function useInsertNode(
+  nodeField: Scalar<ChildNode>, // 描画対象の Node
+  parent: Node,
+  beforeNodeField: Scalar<Node> // 最も最後に渡された Node を優先, Node が無い場合は親の最後に追加
+): void {
   useCast(() => {
     // それぞれの node に対して
     const node = use(nodeField);
     // beforeNode が更新されるたび、そこに移動する
     // nodeField 内の Node については順番は保証できない (保証したいなら Sort を使うべき)
-    const latestBeforeNode = use(latestBeforeNodeField);
-    useInteraction(() => {
+    const latestBeforeNode = use(beforeNodeField);
+    useInteraction(addFin => {
       insertNode(node, parent, latestBeforeNode); // 移動するだけ (戻したりはしない)
+      addFin(() => {
+        detachNode(node);
+      });
     });
   });
 }
@@ -59,21 +69,22 @@ function useInsertNode(
  * 順番を保証する場合は diagram の繰り返しではなくその内部でやる必要がある。
  */
 function useAnchorNodes<K>(
-  countField: Field<K[]>,
+  countField: Scalar<K[]>,
   parent: Node,
-  beforeNodeField: Field<Node>
-): Field<Map<K, Comment>> {
-  const latestBeforeNodeField = useLatest(beforeNodeField, null);
-
+  beforeNodeField: Scalar<Node>
+): Scalar<Map<K, Comment>> {
   return useCast(() => {
     const keys = use(countField);
-    const latestBeforeNode = use(latestBeforeNodeField);
+    const latestBeforeNode = use(beforeNodeField);
 
-    const anchorMap = useInteraction(() => {
+    const anchorMap = useInteraction(addFin => {
       const map = new Map<K, Comment>();
       for (const key of keys) {
         const anchor = document.createComment(`anchor-${String(key)}`);
         insertNode(anchor, parent, latestBeforeNode);
+        addFin(() => {
+          anchor.remove();
+        });
         map.set(key, anchor);
       }
       return map;
@@ -97,7 +108,7 @@ function useAnchorNodes<K>(
 function useRenderInternal(
   element: Element,
   parent: Node,
-  beforeNode: Field<Node>
+  beforeNode: Scalar<Node>
 ): void {
   // Handle null/undefined
   if (element == null) {
@@ -157,7 +168,7 @@ function useRenderInternal(
     const anchorsField = useAnchorNodes(sortByField, parent, beforeNode);
 
     // key に対して beforeNode を取得する関数
-    const getBeforeNodeField = (key: unknown): Field<Node> =>
+    const getBeforeNodeField = (key: DimensionScalar): Scalar<Node> =>
       toField(() => {
         const anchors = use(anchorsField);
         const anchor = anchors.get(key);
@@ -168,13 +179,8 @@ function useRenderInternal(
       });
 
     // それぞれの Element を描画
-    useCast(() => {
-      const element = use(elementsField);
-      useRenderInternal(
-        element,
-        parent,
-        getBeforeNodeField(resolveSortKey(element))
-      );
+    useCasts(elementsField, (element, [key]) => {
+      useRenderInternal(element, parent, getBeforeNodeField(key));
     });
 
     return;
@@ -246,7 +252,7 @@ function useApplyProps(element: HTMLElement, props: Props): void {
     }
 
     // Handle reactive Field values
-    if (isField(value)) {
+    if (isFieldProp(value)) {
       useCast(() => {
         const val = use(value);
         useInteraction(addFinalizeFn => {
@@ -306,12 +312,4 @@ function setProp(element: HTMLElement, key: string, value: unknown): void {
   } else {
     element.setAttribute(key, String(value));
   }
-}
-
-function resolveSortKey(value: unknown): unknown {
-  if (value instanceof ElementNode) {
-    return value.props.key ?? value;
-  }
-
-  return value;
 }

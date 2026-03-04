@@ -1,6 +1,6 @@
 import { Element } from './types';
 import { useRender } from './render';
-import { Field, toField } from '@quon/core';
+import { Scalar, toField } from '@quon/core';
 
 /**
  * Mount an Element to a DOM node
@@ -13,7 +13,7 @@ import { Field, toField } from '@quon/core';
  * // Later, to unmount:
  * await decay();
  */
-export function mount(element: Element, parent: Node): Field<void> {
+export function mount(element: Element, parent: Node): Scalar<void> {
   return toField(() => {
     useRender(element, parent);
   });

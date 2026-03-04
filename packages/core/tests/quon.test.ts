@@ -194,8 +194,8 @@ describe('Diagram basic functionality', () => {
         useCasts(bridge, bridgeValue => {
           useLog(logs, `created: ${bridgeValue}`, `released: ${bridgeValue}`);
         });
-        const id1 = useId();
-        const id2 = useId();
+        const id1 = useId('id1');
+        const id2 = useId('id2');
         useCast(() => {
           const refetch = use(refetchAtom);
           useConnection(bridge, [id1], refetch);
@@ -321,8 +321,9 @@ describe('Diagram basic functionality', () => {
       const logs = new LogCapture();
       const diagram = (): void => {
         const source = useCluster<[number], null>();
-        const grouped = useGroupBy(source, (_, [v]) =>
-          v % 2 === 0 ? 'even' : 'odd'
+        const grouped = useGroupBy(
+          source,
+          (_, [v]) => [v % 2 === 0 ? 'even' : 'odd'] as const
         );
         useCasts(grouped, (group, key) => {
           useLog(logs, `group+: ${key}`, `group-: ${key}`);

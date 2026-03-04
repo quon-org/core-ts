@@ -16,6 +16,7 @@ class Leaf<V> {
 }
 
 type TrieNode = Map<DimensionScalar, TrieNode | Leaf<unknown>>;
+import { SplitAt } from './util';
 
 /**
  * A type-safe Trie indexed by a tuple path P with values of type V.
@@ -36,6 +37,83 @@ type TrieNode = Map<DimensionScalar, TrieNode | Leaf<unknown>>;
  */
 export class Trie<P extends Dimension, V> {
   private root: TrieNode = new Map();
+
+  /**
+   * Create a structural copy of this Trie.
+   *
+   * - Internal Map/Leaf nodes are copied recursively.
+   * - Stored values `V` are copied shallowly (references are preserved).
+   */
+  copy(): Trie<P, V> {
+    const copied = new Trie<P, V>();
+
+    const copyNode = (node: TrieNode): TrieNode => {
+      const next: TrieNode = new Map();
+      for (const [key, child] of node) {
+        if (child instanceof Map) {
+          next.set(key, copyNode(child));
+        } else {
+          next.set(key, new Leaf(child.value));
+        }
+      }
+      return next;
+    };
+
+    copied.root = copyNode(this.root);
+    return copied;
+  }
+
+  /**
+   * Returns a new Trie that contains entries under the given prefix coordinate.
+   *
+   * The returned Trie uses the suffix coordinates (the part after `prefix`).
+   *
+   * @example
+   * ```ts
+   * const trie = new Trie<[string, number, boolean], string>();
+   * trie.set(['a', 1, true], 'x');
+   * trie.set(['a', 2, false], 'y');
+   *
+   * const sub = trie.subtrie(['a']);
+   * sub.get([1, true]); // 'x'
+   * sub.get([2, false]); // 'y'
+   * ```
+   *
+   * Notes:
+   * - If `prefix` does not exist, an empty Trie is returned.
+   * - If `prefix` points exactly to a leaf value, an empty Trie is returned
+   *   (zero-dimension leaf tries are not represented in this implementation).
+   */
+  subtrie<
+    const Prefix extends Dimension,
+    const Suffix extends Dimension = SplitAt<P, Prefix['length']>[1],
+  >(prefix: readonly [...Prefix]): Trie<Suffix, V> {
+    const copied = new Trie<Suffix, V>();
+
+    let node: TrieNode = this.root;
+    for (let i = 0; i < prefix.length; i++) {
+      const child = node.get(prefix[i]);
+      if (!(child instanceof Map)) {
+        return copied;
+      }
+      node = child;
+    }
+
+    const copyNode = (src: TrieNode): TrieNode => {
+      const dest: TrieNode = new Map();
+      for (const [key, child] of src) {
+        if (child instanceof Map) {
+          dest.set(key, copyNode(child));
+        } else {
+          dest.set(key, new Leaf(child.value));
+        }
+      }
+      return dest;
+    };
+
+    copied.root = copyNode(node);
+    return copied;
+  }
 
   get(coordinate: P): V | undefined {
     let node: TrieNode = this.root;
@@ -125,5 +203,55 @@ export class Trie<P extends Dimension, V> {
     for (const [key] of this.entries()) {
       yield key;
     }
+  }
+
+  /**
+   * Enumerates existing prefixes whose depth is exactly `depth`.
+   *
+   * - Depth starts at 1 for the first coordinate element.
+   * - Returns only prefixes that actually exist in the trie.
+   * - Does not include the empty prefix ([]).
+   *
+   * @example
+   * ```ts
+   * const trie = new Trie<[string, number, boolean], string>();
+   * trie.set(['a', 1, true], 'x');
+   * trie.set(['a', 2, false], 'y');
+   * trie.set(['b', 3, true], 'z');
+   *
+   * [...trie.prefixes(1)] // => [['a'], ['b']]
+   * [...trie.prefixes(2)] // => [['a', 1], ['a', 2], ['b', 3]]
+   * ```
+   */
+  *prefixes<const N extends number>(
+    depth: N
+  ): IterableIterator<SplitAt<P, N>[0]> {
+    if (depth <= 0) {
+      return;
+    }
+
+    const path: DimensionScalar[] = [];
+
+    function* walk(
+      node: TrieNode,
+      currentDepth: number
+    ): IterableIterator<SplitAt<P, N>[0]> {
+      if (currentDepth >= depth) return;
+
+      for (const [key, child] of node) {
+        path.push(key);
+        const nextDepth = currentDepth + 1;
+
+        if (nextDepth === depth) {
+          yield [...path] as unknown as SplitAt<P, N>[0];
+        } else if (child instanceof Map) {
+          yield* walk(child, nextDepth);
+        }
+
+        path.pop();
+      }
+    }
+
+    yield* walk(this.root, 0);
   }
 }

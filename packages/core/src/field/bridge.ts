@@ -1,6 +1,6 @@
 import { Field } from '../field';
 import { Interaction, Operator, Excitation } from '../operator';
-import { Dimension, Trie } from '../trie';
+import { Dimension } from '../trie';
 import { MaybePromise } from '../util';
 import { BaseField } from './base';
 
@@ -12,8 +12,6 @@ export class Bridge<P extends Dimension, V>
   extends BaseField<P, V>
   implements Excitation<Bridge<P, V>>
 {
-  private currentFilledCoordinates = new Trie<P, V>();
-
   constructor() {
     super();
   }
@@ -21,13 +19,13 @@ export class Bridge<P extends Dimension, V>
   /** Connects a value to this Bridge. The value is disconnected when the returned Operator is decayed. */
   connect(coodinate: P, val: V): Operator<void> {
     return new Interaction(addFinalizeFn => {
-      if (this.currentFilledCoordinates.has(coodinate)) {
+      if (this.currentValues.has(coodinate)) {
         console.warn(`Coordinate ${coodinate} is already filled`);
       } else {
-        this.currentFilledCoordinates.set(coodinate, val);
+        this.currentValues.set(coodinate, val);
         super._set(coodinate, val);
         addFinalizeFn(() => {
-          this.currentFilledCoordinates.delete(coodinate);
+          this.currentValues.delete(coodinate);
           return super._unset(coodinate);
         });
       }
@@ -36,7 +34,7 @@ export class Bridge<P extends Dimension, V>
 
   /** Returns a snapshot of all currently connected values. */
   items(): readonly V[] {
-    return Array.from(this.currentFilledCoordinates.values());
+    return Array.from(this.currentValues.values());
   }
 
   /** Casts a Field through a Bridge, returning a Operator that resolves to the Bridge as a Field. */

@@ -226,8 +226,12 @@ export class Interaction<T> extends Operator<T> {
 }
 
 export class IdOp extends Operator<symbol> {
+  constructor(private description?: string) {
+    super();
+  }
+
   exicite(): Excitation<symbol> {
-    const id = Symbol();
+    const id = Symbol(this.description);
     return {
       result: id,
       decay: () => undefined,

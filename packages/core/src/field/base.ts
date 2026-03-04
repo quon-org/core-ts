@@ -1,7 +1,7 @@
 import { Field } from '../field';
 import { Excitation, Interaction, Operator } from '../operator';
 import { Dimension, Trie } from '../trie';
-import { MaybePromise } from '../util';
+import { MaybePromise, SplitAt } from '../util';
 
 type ExcitationState<V> =
   // 励起中
@@ -182,6 +182,64 @@ export class BaseField<P extends Dimension, V> extends Field<P, V> {
         }
       });
     });
+  }
+
+  // すべての coorinate の変化を取る Scalar を作成する
+  // 外側の _set および _unset は componund() で作った Scalar に couple された operator の完了も待機しなければいけない。
+  public compound<const N extends number>(
+    prefixLength: N
+  ): Operator<Field<SplitAt<P, N>[0], Trie<SplitAt<P, N>[1], V>>> {
+    const mutationListeners = this.mutationListeners;
+    const currentValues = this.currentValues;
+    return new Interaction<Field<SplitAt<P, N>[0], Trie<SplitAt<P, N>[1], V>>>(
+      addFinalizeFn => {
+        const scalar = new BaseField<
+          SplitAt<P, N>[0],
+          Trie<SplitAt<P, N>[1], V>
+        >();
+
+        // mutationListeners に登録する
+        const mutationListener = (event: {
+          coodinate: P;
+          nextVal?: V;
+        }): MaybePromise<void> => {
+          const prefix = event.coodinate.slice(
+            0,
+            prefixLength
+          ) as unknown as SplitAt<P, N>[0];
+
+          const remainedTrie = currentValues.subtrie<
+            SplitAt<P, N>[0],
+            SplitAt<P, N>[1]
+          >(prefix);
+
+          return scalar._set(prefix, remainedTrie); // ここで内側の _set の MaybePromise を返すことで、外側の _set はこれを待機する
+        };
+        mutationListeners.add(mutationListener);
+
+        // finalize 時に mutationListener を削除する
+        addFinalizeFn(() => {
+          mutationListeners.delete(mutationListener);
+        });
+
+        // 初期値をセットする
+        const prefixes = currentValues.prefixes(prefixLength);
+        for (const prefix of prefixes) {
+          const typedPrefix = prefix as SplitAt<P, N>[0];
+          const remainedTrie = currentValues.subtrie<
+            SplitAt<P, N>[0],
+            SplitAt<P, N>[1]
+          >(typedPrefix);
+          scalar._set(typedPrefix, remainedTrie);
+        }
+
+        addFinalizeFn(() => {
+          // finalize 時に scalar を decay させる。
+          return scalar._decay();
+        });
+        return scalar;
+      }
+    );
   }
 
   protected _set(coodinate: P, val: V): MaybePromise<void> {

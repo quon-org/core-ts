@@ -1,6 +1,7 @@
-import { Field } from '@quon/core';
+import { Field, Scalar } from '@quon/core';
 import { Element, Component, ElementNode, SortedElement } from './types';
-import { isField } from './utils';
+import { isFieldProp } from './utils';
+import { DimensionScalar } from '../../core/dist/trie';
 
 /**
  * JSX factory function (automatic runtime)
@@ -62,18 +63,10 @@ export function Sort({
   by,
   children,
 }: {
-  by: Field<unknown[]> | unknown[];
-  children: Element | Element[];
+  by: Scalar<DimensionScalar[]> | DimensionScalar[];
+  children: Field<readonly [DimensionScalar], Element>;
 }): Element {
-  const sortByField = isField(by) ? by : Field.pure(by);
+  const sortByField = isFieldProp(by) ? by : Field.pure(by);
 
-  const elementsField = isField(children)
-    ? children
-    : Array.isArray(children)
-      ? children.length === 1 && isField(children[0])
-        ? children[0]
-        : Field.pure(children)
-      : Field.pure(children);
-
-  return new SortedElement(sortByField, elementsField);
+  return new SortedElement(sortByField, children);
 }

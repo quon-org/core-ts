@@ -47,20 +47,20 @@ const InputSync = component(() => {
 
 // Input sync example
 const TodoList = component(() => {
-  const todos = useCluster<{ id: number; text: string }>();
+  const todos = useCluster<readonly [number], string>();
   const newTodoText = useAtom<string>('');
-  const todoOrder = useAtom<unknown[]>([]);
+  const todoOrder = useAtom<number[]>([]);
 
   const addTodo = (): void => {
     if (newTodoText.peek().trim() === '') return;
     const todo = { id: Date.now(), text: newTodoText.peek() };
-    todos.add(todo);
+    todos.set([todo.id], todo.text);
     todoOrder.modify(prev => [todo.id, ...prev]);
     newTodoText.set('');
   };
 
   const removeTodo = (id: number): void => {
-    todos.removeIf(todo => todo.id === id);
+    todos.deleteIf((_, [todoId]) => id === todoId);
     todoOrder.modify(prev => prev.filter(key => key !== id));
   };
 
@@ -77,10 +77,9 @@ const TodoList = component(() => {
       <button onClick={addTodo}>Add Todo</button>
       <ul>
         <Sort by={todoOrder}>
-          {todos.map(todo => (
-            <li key={todo.id}>
-              {todo.text}{' '}
-              <button onClick={() => removeTodo(todo.id)}>Remove</button>
+          {todos.map((todo, [id]) => (
+            <li>
+              {todo} <button onClick={() => removeTodo(id)}>Remove</button>
             </li>
           ))}
         </Sort>

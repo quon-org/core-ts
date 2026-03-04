@@ -1,10 +1,11 @@
-import { Field } from '@quon/core';
+import { Field, Scalar } from '@quon/core';
+import { DimensionScalar, ZeroDimension } from '../../core/dist/trie';
 
 /**
  * Element type - the core type representing DOM elements in the library
  */
 export type Element =
-  | Field<Element> // Component (Diagram-based) or reactive value
+  | Field<ZeroDimension, Element> // Component (Diagram-based) or reactive value
   | SortedElement
   | ElementNode // DOM element description
   | string // Text node
@@ -29,10 +30,13 @@ export class ElementNode {
 }
 
 export class SortedElement {
-  sortBy: Field<unknown[]>;
-  elementsField: Field<Element>;
+  sortBy: Scalar<DimensionScalar[]>;
+  elementsField: Field<readonly [DimensionScalar], Element>;
 
-  constructor(sortBy: Field<unknown[]>, elementsField: Field<Element>) {
+  constructor(
+    sortBy: Scalar<DimensionScalar[]>,
+    elementsField: Field<readonly [DimensionScalar], Element>
+  ) {
     this.sortBy = sortBy;
     this.elementsField = elementsField;
   }
@@ -41,13 +45,13 @@ export class SortedElement {
 /**
  * Helper type to allow Field values for a given type
  */
-export type MaybeReactive<T> = T | Field<T>;
+export type MaybeScalar<T> = T | Scalar<T>;
 
 /**
  * Props type - supports both static values and reactive Field values
  */
 export type Props = {
-  [key: string]: MaybeReactive<unknown>;
+  [key: string]: MaybeScalar<unknown>;
   ref?: RefCallback;
   key?: string | number;
 };
@@ -69,7 +73,6 @@ export type Component<P = any> = (props: P) => Element;
 export type QuonIntrinsicElements = {
   [K in keyof HTMLElementTagNameMap]: {
     ref?: RefCallback;
-    key?: string | number;
     children?: Element | Element[];
     // Mouse events
     onClick?: (e: MouseEvent) => void;
@@ -106,13 +109,13 @@ export type QuonIntrinsicElements = {
     // Scroll events
     onScroll?: (e: Event) => void;
     // Props can be reactive Field values
-    value?: MaybeReactive<string>;
-    checked?: MaybeReactive<boolean>;
-    disabled?: MaybeReactive<boolean>;
-    className?: MaybeReactive<string>;
-    style?: MaybeReactive<string | Partial<CSSStyleDeclaration>>;
+    value?: MaybeScalar<string>;
+    checked?: MaybeScalar<boolean>;
+    disabled?: MaybeScalar<boolean>;
+    className?: MaybeScalar<string>;
+    style?: MaybeScalar<string | Partial<CSSStyleDeclaration>>;
     // Allow any other props with Field support
-    [key: string]: unknown | Field<unknown>;
+    [key: string]: unknown | Scalar<unknown>;
   };
 };
 

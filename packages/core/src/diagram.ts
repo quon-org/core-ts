@@ -3,9 +3,9 @@ import { Atom } from './field/atom';
 import { Cluster } from './field/cluster';
 import { Bridge } from './field/bridge';
 import { IdOp, Interaction, Operator, Ref, RefOp } from './operator';
-import { MaybePromise } from './util';
+import { MaybePromise, SplitAt } from './util';
 import { Structural } from './structual';
-import { Dimension } from './trie';
+import { Dimension, Trie } from './trie';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DiagramResult = any;
@@ -369,10 +369,21 @@ export function useConnection<P extends Dimension, T>(
   useOperator(bridge.connect(coodinate, val));
 }
 
-export function useId(): symbol {
-  return useOperator(new IdOp());
+export function useId(description?: string): symbol {
+  return useOperator(new IdOp(description));
 }
 
 export function useRef<T>(initialValue: T): Ref<T> {
   return useOperator(new RefOp(initialValue));
+}
+
+export function useCompound<P extends Dimension, V, const N extends number>(
+  field: Field<P, V>,
+  prefixLength: N
+): Field<SplitAt<P, N>[0], Trie<SplitAt<P, N>[1], V>> {
+  const bridge = useBridge<P, V>();
+  useCasts(field, (val, coodinate) => {
+    bridge.connect(coodinate, val);
+  });
+  return useOperator(bridge.compound(prefixLength));
 }
