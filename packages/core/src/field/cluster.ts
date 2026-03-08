@@ -1,5 +1,5 @@
 import { Coalescer } from '../coalescer';
-import { Excitation } from '../operator';
+import { Instance } from '../resource';
 import { Structural } from '../structual';
 import { Dimension, Trie } from '../trie';
 import { MaybePromise } from '../util';
@@ -31,7 +31,7 @@ type ClusterMutationEvent<P extends Dimension, V> =
  */
 export class Cluster<P extends Dimension, V extends Structural>
   extends BaseField<P, V>
-  implements Excitation<Cluster<P, V>>
+  implements Instance<Cluster<P, V>>
 {
   // 同期的なイベントの連鎖をまとめる
   private coalescer = new Coalescer<ClusterMutationEvent<P, V>>();
@@ -113,7 +113,7 @@ export class Cluster<P extends Dimension, V extends Structural>
 
   result = this;
 
-  decay(): MaybePromise<void> {
+  release(): MaybePromise<void> {
     return super._decay();
   }
 }

@@ -1,5 +1,5 @@
-import { Field } from '../field';
-import { Interaction, Operator, Excitation } from '../operator';
+import { ReadonlyCollection } from '../field';
+import { EffectResource, Resource, Instance } from '../resource';
 import { Dimension } from '../trie';
 import { MaybePromise } from '../util';
 import { BaseField } from './base';
@@ -10,15 +10,15 @@ import { BaseField } from './base';
  */
 export class Bridge<P extends Dimension, V>
   extends BaseField<P, V>
-  implements Excitation<Bridge<P, V>>
+  implements Instance<Bridge<P, V>>
 {
   constructor() {
     super();
   }
 
   /** Connects a value to this Bridge. The value is disconnected when the returned Operator is decayed. */
-  connect(coodinate: P, val: V): Operator<void> {
-    return new Interaction(addFinalizeFn => {
+  connect(coodinate: P, val: V): Resource<void> {
+    return new EffectResource(addFinalizeFn => {
       if (this.currentValues.has(coodinate)) {
         console.warn(`Coordinate ${coodinate} is already filled`);
       } else {
@@ -39,9 +39,9 @@ export class Bridge<P extends Dimension, V>
 
   /** Casts a Field through a Bridge, returning a Operator that resolves to the Bridge as a Field. */
   static cast<P extends Dimension, T>(
-    field: Field<P, T>
-  ): Operator<Field<P, T>> {
-    return Operator.ofClass(Bridge<P, T>).flatMap(bridge =>
+    field: ReadonlyCollection<P, T>
+  ): Resource<ReadonlyCollection<P, T>> {
+    return Resource.ofClass(Bridge<P, T>).flatMap(bridge =>
       field
         .couple((val, coodinate) => bridge.connect(coodinate, val))
         .map(() => bridge)
@@ -49,7 +49,7 @@ export class Bridge<P extends Dimension, V>
   }
   result = this;
 
-  decay(): MaybePromise<void> {
+  release(): MaybePromise<void> {
     return super._decay();
   }
 }

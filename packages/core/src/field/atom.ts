@@ -1,5 +1,5 @@
 import { Coalescer } from '../coalescer';
-import { Excitation } from '../operator';
+import { Instance } from '../resource';
 import { Structural } from '../structual';
 import { ZeroDimension } from '../trie';
 import { MaybePromise } from '../util';
@@ -21,7 +21,7 @@ type AtomMutationEvent<V> =
  */
 export class Atom<V extends Structural>
   extends BaseField<ZeroDimension, V>
-  implements Excitation<Atom<V>>
+  implements Instance<Atom<V>>
 {
   private currentValue: V;
   // 同期的なイベントの連鎖をまとめる
@@ -67,7 +67,7 @@ export class Atom<V extends Structural>
 
   result = this;
 
-  decay(): MaybePromise<void> {
+  release(): MaybePromise<void> {
     return super._decay();
   }
 }

@@ -5,7 +5,7 @@ import {
   useBridge,
   useCasts,
 } from './diagram';
-import { Field } from './field';
+import { ReadonlyCollection } from './field';
 import { Structural } from './structual';
 import { Dimension, DimensionScalar } from './trie';
 
@@ -17,11 +17,11 @@ import { Dimension, DimensionScalar } from './trie';
  * @param keyFn A function that extracts a grouping key from each value.
  */
 export function useGroupBy<P extends Dimension, V, K extends Dimension>(
-  sourceField: Field<P, V>,
+  sourceField: ReadonlyCollection<P, V>,
   keyFn: (val: V, coodinate: P) => K
-): Field<K, Field<P, V>> {
+): ReadonlyCollection<K, ReadonlyCollection<P, V>> {
   // それぞれの key に対して、対応する Field を作成する関数
-  const createGroupField = (key: K): Field<P, V> =>
+  const createGroupField = (key: K): ReadonlyCollection<P, V> =>
     sourceField.filter((val, coodinate) =>
       keyFn(val, coodinate).every((k, i) => k === key[i])
     );
@@ -73,9 +73,12 @@ export function useArray<
   K extends DimensionScalar,
   V,
 >(
-  sourceField: Field<P, Array<V>>,
+  sourceField: ReadonlyCollection<P, Array<V>>,
   keyFn: (v: V) => K
-): [Field<readonly [K], Field<readonly [...P], V>>, Field<P, Array<K>>] {
+): [
+  ReadonlyCollection<readonly [K], ReadonlyCollection<readonly [...P], V>>,
+  ReadonlyCollection<P, Array<K>>,
+] {
   const allElemBridge = useBridge<readonly [...P], V>(); // 全ての要素を流す Bridge
   useCasts(sourceField, (source, coord) => {
     source.forEach((elem): void =>
@@ -95,7 +98,7 @@ export function useArray<
 export function useCoalescing<
   P extends Dimension,
   T extends DimensionScalar & Structural,
->(sourceField: Field<P, T>): Field<readonly [T], T> {
+>(sourceField: ReadonlyCollection<P, T>): ReadonlyCollection<readonly [T], T> {
   const grouped = useGroupBy(sourceField, val => [val] as const);
   return grouped.map((_, [val]) => val);
 }

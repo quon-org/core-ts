@@ -1,29 +1,29 @@
-import { Operator } from './operator';
+import { Resource } from './resource';
 import { Dimension, ZeroDimension } from './trie';
 
-export type Scalar<V> = Field<ZeroDimension, V>;
+export type Scalar<V> = ReadonlyCollection<ZeroDimension, V>;
 
 /**
  * Field represents a reactive source that couples listeners to emitted values via Operator.
  */
-export abstract class Field<P extends Dimension, V> {
+export abstract class ReadonlyCollection<P extends Dimension, V> {
   /** Couples a listener to this Field. The listener is called for each emitted value. */
   public abstract couple(
-    listener: (val: V, coodinate: P) => Operator<void>
-  ): Operator<void>;
+    listener: (val: V, coodinate: P) => Resource<void>
+  ): Resource<void>;
 
   /** Converts this Field to a Operator, ignoring emitted values. */
-  public asOperator(): Operator<void> {
-    return this.couple(() => Operator.pure(undefined));
+  public asOperator(): Resource<void> {
+    return this.couple(() => Resource.pure(undefined));
   }
 
   /** Transforms emitted values using the given function. */
-  public map<U>(fn: (val: V, coordinate: P) => U): Field<P, U> {
+  public map<U>(fn: (val: V, coordinate: P) => U): ReadonlyCollection<P, U> {
     const couple = this.couple.bind(this);
-    return new (class extends Field<P, U> {
+    return new (class extends ReadonlyCollection<P, U> {
       couple(
-        listener: (val: U, coodinate: P) => Operator<void>
-      ): Operator<void> {
+        listener: (val: U, coodinate: P) => Resource<void>
+      ): Resource<void> {
         return couple((val, coodinate) => {
           const newVal = fn(val, coodinate);
           return listener(newVal, coodinate);
@@ -34,13 +34,13 @@ export abstract class Field<P extends Dimension, V> {
 
   /** Chains this Field with a function that returns another Field. */
   public flatMap<Q extends Dimension, U>(
-    fn: (val: V, coodinate: P) => Field<Q, U>
-  ): Field<readonly [...P, ...Q], U> {
+    fn: (val: V, coodinate: P) => ReadonlyCollection<Q, U>
+  ): ReadonlyCollection<readonly [...P, ...Q], U> {
     const couple = this.couple.bind(this);
-    return new (class extends Field<readonly [...P, ...Q], U> {
+    return new (class extends ReadonlyCollection<readonly [...P, ...Q], U> {
       couple(
-        listener: (val: U, coodinate: readonly [...P, ...Q]) => Operator<void>
-      ): Operator<void> {
+        listener: (val: U, coodinate: readonly [...P, ...Q]) => Resource<void>
+      ): Resource<void> {
         return couple((val, coodinate) => {
           const newField = fn(val, coodinate);
           return newField.couple((newVal, newCoodinate) => {
@@ -57,19 +57,23 @@ export abstract class Field<P extends Dimension, V> {
   /** Filters emitted values, only passing through those that satisfy the predicate. */
   public filter<S extends V>(
     predicate: (val: V, coodinate: P) => val is S
-  ): Field<P, S>;
-  public filter(predicate: (val: V, coodinate: P) => boolean): Field<P, V>;
-  public filter(predicate: (val: V, coodinate: P) => boolean): Field<P, V> {
+  ): ReadonlyCollection<P, S>;
+  public filter(
+    predicate: (val: V, coodinate: P) => boolean
+  ): ReadonlyCollection<P, V>;
+  public filter(
+    predicate: (val: V, coodinate: P) => boolean
+  ): ReadonlyCollection<P, V> {
     const couple = this.couple.bind(this);
-    return new (class extends Field<P, V> {
+    return new (class extends ReadonlyCollection<P, V> {
       couple(
-        listener: (val: V, coodinate: P) => Operator<void>
-      ): Operator<void> {
+        listener: (val: V, coodinate: P) => Resource<void>
+      ): Resource<void> {
         return couple((val, coodinate) => {
           if (predicate(val, coodinate)) {
             return listener(val, coodinate);
           }
-          return Operator.pure(undefined);
+          return Resource.pure(undefined);
         });
       }
     })();
@@ -77,18 +81,20 @@ export abstract class Field<P extends Dimension, V> {
 
   public filterCoordinate<S extends P>(
     predicate: (coodinate: P) => coodinate is S
-  ): Field<S, V>;
-  public filterCoordinate(predicate: (coodinate: P) => boolean): Field<P, V> {
+  ): ReadonlyCollection<S, V>;
+  public filterCoordinate(
+    predicate: (coodinate: P) => boolean
+  ): ReadonlyCollection<P, V> {
     const couple = this.couple.bind(this);
-    return new (class extends Field<P, V> {
+    return new (class extends ReadonlyCollection<P, V> {
       couple(
-        listener: (val: V, coodinate: P) => Operator<void>
-      ): Operator<void> {
+        listener: (val: V, coodinate: P) => Resource<void>
+      ): Resource<void> {
         return couple((val, coodinate) => {
           if (predicate(coodinate)) {
             return listener(val, coodinate);
           }
-          return Operator.pure(undefined);
+          return Resource.pure(undefined);
         });
       }
     })();
@@ -96,10 +102,10 @@ export abstract class Field<P extends Dimension, V> {
 
   public get(coodinate: P): Scalar<V> {
     const couple = this.couple.bind(this);
-    return new (class extends Field<ZeroDimension, V> {
+    return new (class extends ReadonlyCollection<ZeroDimension, V> {
       couple(
-        listener: (val: V, coodinate: ZeroDimension) => Operator<void>
-      ): Operator<void> {
+        listener: (val: V, coodinate: ZeroDimension) => Resource<void>
+      ): Resource<void> {
         return couple((val, emittedCoodinate) => {
           if (
             emittedCoodinate.length === coodinate.length &&
@@ -107,7 +113,7 @@ export abstract class Field<P extends Dimension, V> {
           ) {
             return listener(val, []);
           }
-          return Operator.pure(undefined);
+          return Resource.pure(undefined);
         });
       }
     })();
@@ -115,53 +121,53 @@ export abstract class Field<P extends Dimension, V> {
 
   /** Merges multiple Fields into one, emitting values from all of them in parallel. */
   public static concat<P extends Dimension, T>(
-    fields: readonly Field<P, T>[]
-  ): Field<readonly [...P, number], T> {
-    return new (class extends Field<readonly [...P, number], T> {
+    fields: readonly ReadonlyCollection<P, T>[]
+  ): ReadonlyCollection<readonly [...P, number], T> {
+    return new (class extends ReadonlyCollection<readonly [...P, number], T> {
       couple(
         listener: (
           val: T,
           coordinate: readonly [...P, number]
-        ) => Operator<void>
-      ): Operator<void> {
+        ) => Resource<void>
+      ): Resource<void> {
         const operators = fields.map((field, idx) =>
           field.couple((val, coodinate) => {
             const combinedKey = [...coodinate, idx] as const;
             return listener(val, combinedKey);
           })
         );
-        return Operator.parSequence(operators).map(() => undefined);
+        return Resource.all(operators).map(() => undefined);
       }
     })();
   }
 
   /** Creates a Field that emits a single value. */
   public static pure<V>(val: V): Scalar<V> {
-    return new (class extends Field<ZeroDimension, V> {
+    return new (class extends ReadonlyCollection<ZeroDimension, V> {
       couple(
-        listener: (val: V, coordinate: ZeroDimension) => Operator<void>
-      ): Operator<void> {
+        listener: (val: V, coordinate: ZeroDimension) => Resource<void>
+      ): Resource<void> {
         return listener(val, []);
       }
     })();
   }
 
   /** Creates a Field from a Operator, emitting the Operator's result as a single value. */
-  public static ofOperator<V>(r: Operator<V>): Scalar<V> {
-    return new (class extends Field<ZeroDimension, V> {
+  public static ofOperator<V>(r: Resource<V>): Scalar<V> {
+    return new (class extends ReadonlyCollection<ZeroDimension, V> {
       couple(
-        listener: (val: V, coordinate: ZeroDimension) => Operator<void>
-      ): Operator<void> {
+        listener: (val: V, coordinate: ZeroDimension) => Resource<void>
+      ): Resource<void> {
         return r.flatMap(val => listener(val, []));
       }
     })();
   }
 
   /** Creates a Field that never emits any value. */
-  public static empty<P extends Dimension, V>(): Field<P, V> {
-    return new (class extends Field<P, V> {
-      couple(): Operator<void> {
-        return Operator.pure(undefined);
+  public static empty<P extends Dimension, V>(): ReadonlyCollection<P, V> {
+    return new (class extends ReadonlyCollection<P, V> {
+      couple(): Resource<void> {
+        return Resource.pure(undefined);
       }
     })();
   }

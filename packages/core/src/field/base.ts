@@ -1,18 +1,21 @@
-import { Field } from '../field';
-import { Excitation, Interaction, Operator } from '../operator';
+import { ReadonlyCollection } from '../field';
+import { Instance, EffectResource, Resource } from '../resource';
 import { Dimension, Trie } from '../trie';
 import { MaybePromise, SplitAt } from '../util';
 
 type ExcitationState<V> =
   // 励起中
-  | { excitation: Excitation<void> }
+  | { excitation: Instance<void> }
   // 減衰中 (nextVal がある場合は、減衰完了後に即座に励起しなおす)
   // overwritable が true の場合は、nextVal の上書きが可能。
   | { decaying: Promise<void>; nextVal?: V; overwritable: true }
   // overwritable が false の場合は、nextVal の上書きが不可能。これは主に、coupling の解除や、BaseField 自体の decay 時の状態である。
   | { decaying: Promise<void>; overwritable: false };
 
-export class BaseField<P extends Dimension, V> extends Field<P, V> {
+export class BaseField<P extends Dimension, V> extends ReadonlyCollection<
+  P,
+  V
+> {
   // それぞれのcoupleに対して、Coodinate 毎の State を保持している。
   private excitations: Map<symbol, Trie<P, ExcitationState<V>>> = new Map();
 
@@ -25,10 +28,10 @@ export class BaseField<P extends Dimension, V> extends Field<P, V> {
   >();
 
   public couple(
-    listener: (val: V, coodinate: P) => Operator<void>
-  ): Operator<void> {
+    listener: (val: V, coodinate: P) => Resource<void>
+  ): Resource<void> {
     const excitations = this.excitations;
-    return new Interaction(addFinalizeFn => {
+    return new EffectResource(addFinalizeFn => {
       const id = Symbol();
       const trie = new Trie<P, ExcitationState<V>>();
       excitations.set(id, trie);
@@ -46,10 +49,7 @@ export class BaseField<P extends Dimension, V> extends Field<P, V> {
         const state = trie.get(event.coodinate);
         if (!state && 'nextVal' in event) {
           // State が存在せず、かつ nextVal がある場合は、新たに励起する。
-          const excitation = listener(
-            event.nextVal!,
-            event.coodinate
-          ).exicite();
+          const excitation = listener(event.nextVal!, event.coodinate).aquire();
           trie.set(event.coodinate, { excitation });
           return;
         }
@@ -59,7 +59,7 @@ export class BaseField<P extends Dimension, V> extends Field<P, V> {
         }
         if (state && 'excitation' in state) {
           // state が存在し、励起中である場合は減衰させる。減衰完了時に、もし nextVal があれば励起しなおす。(減衰開始時の nextVal は今後変更される可能性がある点に注意。)
-          const decaying = state.excitation.decay();
+          const decaying = state.excitation.release();
           if (decaying instanceof Promise) {
             // 非同期 decay
             const state: ExcitationState<V> = { decaying, overwritable: true };
@@ -89,7 +89,7 @@ export class BaseField<P extends Dimension, V> extends Field<P, V> {
                 const excitation = listener(
                   currentState.nextVal!,
                   event.coodinate
-                ).exicite();
+                ).aquire();
                 trie.set(event.coodinate, { excitation });
               } else {
                 // 無い場合は State を削除する。
@@ -103,7 +103,7 @@ export class BaseField<P extends Dimension, V> extends Field<P, V> {
               const excitation = listener(
                 event.nextVal!,
                 event.coodinate
-              ).exicite();
+              ).aquire();
               trie.set(event.coodinate, { excitation });
             } else {
               // event.nextVal がない場合は State を削除する
@@ -147,7 +147,7 @@ export class BaseField<P extends Dimension, V> extends Field<P, V> {
       // すべての現在の値について、励起する。
       const currentValues = this.currentValues.entries();
       for (const [coodinate, val] of currentValues) {
-        const excitation = listener(val, coodinate).exicite();
+        const excitation = listener(val, coodinate).aquire();
         trie.set(coodinate, { excitation });
       }
 
@@ -158,7 +158,7 @@ export class BaseField<P extends Dimension, V> extends Field<P, V> {
         for (const [coodinate, state] of excitations) {
           if ('excitation' in state) {
             // 励起中のものは減衰させる。
-            const decaying = state.excitation.decay();
+            const decaying = state.excitation.release();
             if (decaying instanceof Promise) {
               trie.set(coodinate, { decaying, overwritable: false });
               // decaying の最後に trie から State を削除しないと、State に残ったままであるが、そもそも Trie 自体を削除してしまうので問題ない。
@@ -188,58 +188,58 @@ export class BaseField<P extends Dimension, V> extends Field<P, V> {
   // 外側の _set および _unset は componund() で作った Scalar に couple された operator の完了も待機しなければいけない。
   public compound<const N extends number>(
     prefixLength: N
-  ): Operator<Field<SplitAt<P, N>[0], Trie<SplitAt<P, N>[1], V>>> {
+  ): Resource<ReadonlyCollection<SplitAt<P, N>[0], Trie<SplitAt<P, N>[1], V>>> {
     const mutationListeners = this.mutationListeners;
     const currentValues = this.currentValues;
-    return new Interaction<Field<SplitAt<P, N>[0], Trie<SplitAt<P, N>[1], V>>>(
-      addFinalizeFn => {
-        const scalar = new BaseField<
+    return new EffectResource<
+      ReadonlyCollection<SplitAt<P, N>[0], Trie<SplitAt<P, N>[1], V>>
+    >(addFinalizeFn => {
+      const scalar = new BaseField<
+        SplitAt<P, N>[0],
+        Trie<SplitAt<P, N>[1], V>
+      >();
+
+      // mutationListeners に登録する
+      const mutationListener = (event: {
+        coodinate: P;
+        nextVal?: V;
+      }): MaybePromise<void> => {
+        const prefix = event.coodinate.slice(
+          0,
+          prefixLength
+        ) as unknown as SplitAt<P, N>[0];
+
+        const remainedTrie = currentValues.subtrie<
           SplitAt<P, N>[0],
-          Trie<SplitAt<P, N>[1], V>
-        >();
+          SplitAt<P, N>[1]
+        >(prefix);
 
-        // mutationListeners に登録する
-        const mutationListener = (event: {
-          coodinate: P;
-          nextVal?: V;
-        }): MaybePromise<void> => {
-          const prefix = event.coodinate.slice(
-            0,
-            prefixLength
-          ) as unknown as SplitAt<P, N>[0];
+        return scalar._set(prefix, remainedTrie); // ここで内側の _set の MaybePromise を返すことで、外側の _set はこれを待機する
+      };
+      mutationListeners.add(mutationListener);
 
-          const remainedTrie = currentValues.subtrie<
-            SplitAt<P, N>[0],
-            SplitAt<P, N>[1]
-          >(prefix);
+      // finalize 時に mutationListener を削除する
+      addFinalizeFn(() => {
+        mutationListeners.delete(mutationListener);
+      });
 
-          return scalar._set(prefix, remainedTrie); // ここで内側の _set の MaybePromise を返すことで、外側の _set はこれを待機する
-        };
-        mutationListeners.add(mutationListener);
-
-        // finalize 時に mutationListener を削除する
-        addFinalizeFn(() => {
-          mutationListeners.delete(mutationListener);
-        });
-
-        // 初期値をセットする
-        const prefixes = currentValues.prefixes(prefixLength);
-        for (const prefix of prefixes) {
-          const typedPrefix = prefix as SplitAt<P, N>[0];
-          const remainedTrie = currentValues.subtrie<
-            SplitAt<P, N>[0],
-            SplitAt<P, N>[1]
-          >(typedPrefix);
-          scalar._set(typedPrefix, remainedTrie);
-        }
-
-        addFinalizeFn(() => {
-          // finalize 時に scalar を decay させる。
-          return scalar._decay();
-        });
-        return scalar;
+      // 初期値をセットする
+      const prefixes = currentValues.prefixes(prefixLength);
+      for (const prefix of prefixes) {
+        const typedPrefix = prefix as SplitAt<P, N>[0];
+        const remainedTrie = currentValues.subtrie<
+          SplitAt<P, N>[0],
+          SplitAt<P, N>[1]
+        >(typedPrefix);
+        scalar._set(typedPrefix, remainedTrie);
       }
-    );
+
+      addFinalizeFn(() => {
+        // finalize 時に scalar を decay させる。
+        return scalar._decay();
+      });
+      return scalar;
+    });
   }
 
   protected _set(coodinate: P, val: V): MaybePromise<void> {
@@ -285,7 +285,7 @@ export class BaseField<P extends Dimension, V> extends Field<P, V> {
       for (const [coodinate, state] of excitations) {
         if ('excitation' in state) {
           // 励起中のものは減衰させる。
-          const decaying = state.excitation.decay();
+          const decaying = state.excitation.release();
           if (decaying instanceof Promise) {
             trie.set(coodinate, { decaying, overwritable: false });
             // decaying の最後に trie から State を削除しないと、State に残ったままであるが、そもそも Trie 自体を削除してしまうので問題ない。

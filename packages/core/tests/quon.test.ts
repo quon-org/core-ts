@@ -34,13 +34,13 @@ describe('Diagram basic functionality', () => {
       useLog(logs, `value: ${value}`);
     };
 
-    const app = toField(diagram).asOperator().exicite();
+    const app = toField(diagram).asOperator().aquire();
     await new Promise(resolve => setTimeout(resolve, 10));
 
     const result = logs.expect(['value: 42']);
     expect(result.passed, result.message).toBe(true);
 
-    await app.decay();
+    await app.release();
   });
 
   describe('Diagram useAtom functionality', () => {
@@ -62,7 +62,7 @@ describe('Diagram basic functionality', () => {
         useInteraction(() => atom.set(10));
       };
 
-      const app = toField(diagram).asOperator().exicite();
+      const app = toField(diagram).asOperator().aquire();
 
       // 初期値
       await new Promise(resolve => setTimeout(resolve, 10));
@@ -85,7 +85,7 @@ describe('Diagram basic functionality', () => {
       ]);
       expect(result.passed, result.message).toBe(true);
 
-      await app.decay();
+      await app.release();
     });
 
     it('should skip duplicate values', async () => {
@@ -106,13 +106,13 @@ describe('Diagram basic functionality', () => {
         useInteraction(() => atom.set(3));
       };
 
-      const app = toField(diagram).asOperator().exicite();
+      const app = toField(diagram).asOperator().aquire();
       await new Promise(resolve => setTimeout(resolve, 60));
 
       const result = logs.expect(['value: 1', 'value: 2', 'value: 3']);
       expect(result.passed, result.message).toBe(true);
 
-      await app.decay();
+      await app.release();
     });
 
     it('should handle function updates', async () => {
@@ -132,13 +132,13 @@ describe('Diagram basic functionality', () => {
         useInteraction(() => atom.modify(prev => prev * 2));
       };
 
-      const app = toField(diagram).asOperator().exicite();
+      const app = toField(diagram).asOperator().aquire();
       await new Promise(resolve => setTimeout(resolve, 40));
 
       const result = logs.expect(['count: 0', 'count: 1', 'count: 2']);
       expect(result.passed, result.message).toBe(true);
 
-      await app.decay();
+      await app.release();
     });
 
     it('should handle multiple observers independently', async () => {
@@ -164,7 +164,7 @@ describe('Diagram basic functionality', () => {
         useInteraction(() => atom.set(2));
       };
 
-      const app = toField(diagram).asOperator().exicite();
+      const app = toField(diagram).asOperator().aquire();
       await new Promise(resolve => setTimeout(resolve, 40));
 
       const result = logs.expect([
@@ -181,7 +181,7 @@ describe('Diagram basic functionality', () => {
       ]);
       expect(result.passed, result.message).toBe(true);
 
-      await app.decay();
+      await app.release();
     });
   });
 
@@ -210,7 +210,7 @@ describe('Diagram basic functionality', () => {
         useTimeout(20);
         useInteraction(() => refetchAtom.set(10));
       };
-      const app = toField(diagram).asOperator().exicite();
+      const app = toField(diagram).asOperator().aquire();
       // Wait for all operations to complete
       await new Promise(resolve => setTimeout(resolve, 60));
       // Atom is synchronous, so updates happen immediately:
@@ -231,7 +231,7 @@ describe('Diagram basic functionality', () => {
         'created: 110',
       ]);
       expect(result.passed, result.message).toBe(true);
-      await app.decay();
+      await app.release();
     });
   });
   describe('Diagram cancellation functionality', () => {
@@ -258,7 +258,7 @@ describe('Diagram basic functionality', () => {
         // Resume from `use(cell2)` (no value1 logs)
         // -> "value2: 200"
       };
-      const app = toField(diagram).asOperator().exicite();
+      const app = toField(diagram).asOperator().aquire();
       // 2回目の更新
       await new Promise(resolve => setTimeout(resolve, 120));
       const result = logs.expect([
@@ -270,7 +270,7 @@ describe('Diagram basic functionality', () => {
         'value2: 200',
       ]);
       expect(result.passed, result.message).toBe(true);
-      await app.decay();
+      await app.release();
     });
   });
   describe('Diagram context functionality', () => {
@@ -293,11 +293,11 @@ describe('Diagram basic functionality', () => {
         });
         useTimeout(60);
       };
-      const app = toField(diagram).asOperator().exicite();
+      const app = toField(diagram).asOperator().aquire();
       await new Promise(resolve => setTimeout(resolve, 100));
       const result = logs.expect(['count: 0', 'count: 1', 'count: 2']);
       expect(result.passed, result.message).toBe(true);
-      await app.decay();
+      await app.release();
     });
   });
   describe('Operator resource management', () => {
@@ -306,12 +306,12 @@ describe('Diagram basic functionality', () => {
       const diagram = (): void => {
         useLog(logs, 'created');
       };
-      const app = toField(diagram).asOperator().exicite();
+      const app = toField(diagram).asOperator().aquire();
       await new Promise(resolve => setTimeout(resolve, 10));
       // Call decay multiple times - should be idempotent
-      await app.decay();
-      await app.decay();
-      await app.decay();
+      await app.release();
+      await app.release();
+      await app.release();
       const result = logs.expect(['created']);
       expect(result.passed, result.message).toBe(true);
     });
@@ -343,7 +343,7 @@ describe('Diagram basic functionality', () => {
         useInteraction(() => source.delete([2]));
         useInteraction(() => source.delete([5]));
       };
-      const app = toField(diagram).asOperator().exicite();
+      const app = toField(diagram).asOperator().aquire();
       await new Promise(resolve => setTimeout(resolve, 50));
       const result = logs.expect([
         'group+: odd',
@@ -358,7 +358,7 @@ describe('Diagram basic functionality', () => {
         'group-: odd',
       ]);
       expect(result.passed, result.message).toBe(true);
-      await app.decay();
+      await app.release();
     });
     describe('useArray works correctly', () => {
       it('should create and remove array items by key, and update values', async () => {
@@ -408,7 +408,7 @@ describe('Diagram basic functionality', () => {
             ]);
           });
         };
-        const app = toField(diagram).asOperator().exicite();
+        const app = toField(diagram).asOperator().aquire();
         await new Promise(resolve => setTimeout(resolve, 50));
         const result = logs.expect([
           'order: a,b,c',
@@ -428,7 +428,7 @@ describe('Diagram basic functionality', () => {
           'value: b: 100',
         ]);
         expect(result.passed, result.message).toBe(true);
-        await app.decay();
+        await app.release();
       });
     });
   });

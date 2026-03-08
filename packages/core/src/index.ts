@@ -1,8 +1,16 @@
 // Class exports (needed for instanceof checks and direct usage)
-export { Field } from './field';
+export { ReadonlyCollection as Field } from './field';
 export type { Scalar } from './field';
-export { Operator, Interaction, RefOp } from './operator';
-export type { Excitation, ExcitationClass, Ref } from './operator';
+export {
+  Resource as Operator,
+  EffectResource as Interaction,
+  RefOp,
+} from './resource';
+export type {
+  Instance as Excitation,
+  InstanceClass as ExcitationClass,
+  RuntimeRef as Ref,
+} from './resource';
 export { Atom } from './field/atom';
 export { Bridge } from './field/bridge';
 export { Cluster } from './field/cluster';

@@ -1,8 +1,14 @@
-import { Field, Scalar } from './field';
+import { ReadonlyCollection, Scalar } from './field';
 import { Atom } from './field/atom';
 import { Cluster } from './field/cluster';
 import { Bridge } from './field/bridge';
-import { IdOp, Interaction, Operator, Ref, RefOp } from './operator';
+import {
+  UniqueId,
+  EffectResource,
+  Resource,
+  RuntimeRef,
+  RefOp,
+} from './resource';
 import { MaybePromise, SplitAt } from './util';
 import { Structural } from './structual';
 import { Dimension, Trie } from './trie';
@@ -39,7 +45,7 @@ function getDiagramGlobalContext(): DIAGRAM_GLOBAL_CONTEXT_TYPE {
 function useContextProvider<T>(key: symbol, value: T): void {
   const global = getDiagramGlobalContext();
   useOperator(
-    new Interaction<void>(addFinalizeFn => {
+    new EffectResource<void>(addFinalizeFn => {
       const temp = global.getUserCtx()[key];
       global.getUserCtx()[key] = value;
 
@@ -142,15 +148,15 @@ export function toField<T>(
   dynamics: () => T,
   userCtx?: UserContext
 ): Scalar<T> {
-  const couple = (listener: (val: T) => Operator<void>): Operator<void> => {
+  const couple = (listener: (val: T) => Resource<void>): Resource<void> => {
     const fieldUserCtx = { ...userCtx };
     // toOperator は effective である。
     // toOperator を実行した瞬間、diagram の実行が開始される
     function toOperator(
       diagram: () => T,
       history: DiagramResult[] = [] // 既に発火した use の結果の履歴
-    ): Operator<void> {
-      return new Interaction<void>(addFinalizeFn => {
+    ): Resource<void> {
+      return new EffectResource<void>(addFinalizeFn => {
         // 現在の use の呼び出し位置
         let currentIndex = 0;
 
@@ -177,22 +183,22 @@ export function toField<T>(
           currentIndex = 0;
           const result = diagram();
           DIAGRAM_GLOBAL_CONTEXT = tmp;
-          const { decay } = listener(result).exicite();
+          const { release: decay } = listener(result).aquire();
           addFinalizeFn(decay);
           return;
         } catch (e: unknown) {
           DIAGRAM_GLOBAL_CONTEXT = tmp;
-          if (!(e instanceof Field)) {
+          if (!(e instanceof ReadonlyCollection)) {
             throw e;
           }
           const rg = e as Scalar<DiagramResult>;
           // 継続
-          const cont = (val: DiagramResult): Operator<void> => {
+          const cont = (val: DiagramResult): Resource<void> => {
             // 継続呼び出しのたびに履歴を更新
             const newHistory = [...history, val];
             return toOperator(diagram, newHistory);
           };
-          const { decay } = rg.couple(cont).exicite();
+          const { release: decay } = rg.couple(cont).aquire();
           addFinalizeFn(decay);
           return;
         }
@@ -201,10 +207,10 @@ export function toField<T>(
     return toOperator(dynamics);
   };
 
-  return new (class extends Field<[], T> {
+  return new (class extends ReadonlyCollection<[], T> {
     couple(
-      listener: (val: T, coodinate: []) => Operator<void>
-    ): Operator<void> {
+      listener: (val: T, coodinate: []) => Resource<void>
+    ): Resource<void> {
       return couple(val => listener(val, []));
     }
   })();
@@ -221,8 +227,8 @@ export function use<T>(field: Scalar<T>): T {
   return global.use(field);
 }
 
-export function useOperator<T>(operator: Operator<T>): T {
-  return use(Field.ofOperator(operator));
+export function useOperator<T>(operator: Resource<T>): T {
+  return use(ReadonlyCollection.ofOperator(operator));
 }
 
 /**
@@ -238,7 +244,7 @@ export function useInteraction<T>(
   ) => MaybePromise<T>
 ): T {
   return useOperator(
-    new Interaction<T>((addFinalizeFn, abortSignal) => {
+    new EffectResource<T>((addFinalizeFn, abortSignal) => {
       return maker(addFinalizeFn, abortSignal);
     })
   );
@@ -298,9 +304,9 @@ export function useCast<T>(diagram: () => T): Scalar<T> {
 }
 
 export function useScatter<P extends Dimension, P2 extends Dimension, T, T2>(
-  field: Field<P, T>,
-  diagram: (val: T, coodinate: P) => Field<P2, T2>
-): Field<readonly [...P, ...P2], T2> {
+  field: ReadonlyCollection<P, T>,
+  diagram: (val: T, coodinate: P) => ReadonlyCollection<P2, T2>
+): ReadonlyCollection<readonly [...P, ...P2], T2> {
   const userCtx = useUserContext();
   return useOperator(
     Bridge.cast(
@@ -314,9 +320,9 @@ export function useScatter<P extends Dimension, P2 extends Dimension, T, T2>(
 }
 
 export function useCasts<P extends Dimension, T, T2>(
-  field: Field<P, T>,
+  field: ReadonlyCollection<P, T>,
   diagram: (val: T, coodinate: P) => T2
-): Field<readonly [...P], T2> {
+): ReadonlyCollection<readonly [...P], T2> {
   const userCtx = useUserContext();
   return useOperator(
     Bridge.cast(
@@ -332,7 +338,7 @@ export function useCasts<P extends Dimension, T, T2>(
  * The Atom can be updated with `set()` or `modify()`, which triggers re-execution of dependent Diagrams.
  */
 export function useAtom<T extends Structural>(initialValue: T): Atom<T> {
-  return useOperator(Operator.ofClass(Atom, initialValue));
+  return useOperator(Resource.ofClass(Atom, initialValue));
 }
 
 /**
@@ -340,7 +346,7 @@ export function useAtom<T extends Structural>(initialValue: T): Atom<T> {
  * Values can be dynamically connected and disconnected via `useConnection()`.
  */
 export function useBridge<P extends Dimension, T>(): Bridge<P, T> {
-  return useOperator(Operator.ofClass(Bridge<P, T>));
+  return useOperator(Resource.ofClass(Bridge<P, T>));
 }
 
 /**
@@ -352,7 +358,7 @@ export function useCluster<
   P extends Dimension,
   T extends Structural,
 >(): Cluster<P, T> {
-  return useOperator(Operator.ofClass(Cluster<P, T>));
+  return useOperator(Resource.ofClass(Cluster<P, T>));
 }
 
 /**
@@ -370,17 +376,17 @@ export function useConnection<P extends Dimension, T>(
 }
 
 export function useId(description?: string): symbol {
-  return useOperator(new IdOp(description));
+  return useOperator(new UniqueId(description));
 }
 
-export function useRef<T>(initialValue: T): Ref<T> {
+export function useRef<T>(initialValue: T): RuntimeRef<T> {
   return useOperator(new RefOp(initialValue));
 }
 
 export function useCompound<P extends Dimension, V, const N extends number>(
-  field: Field<P, V>,
+  field: ReadonlyCollection<P, V>,
   prefixLength: N
-): Field<SplitAt<P, N>[0], Trie<SplitAt<P, N>[1], V>> {
+): ReadonlyCollection<SplitAt<P, N>[0], Trie<SplitAt<P, N>[1], V>> {
   const bridge = useBridge<P, V>();
   useCasts(field, (val, coodinate) => {
     bridge.connect(coodinate, val);
